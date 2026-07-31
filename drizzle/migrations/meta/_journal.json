@@ -22,6 +22,13 @@
       "when": 1785354006314,
       "tag": "0002_perpetual_tiger_shark",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785494998959,
+      "tag": "0003_nifty_timeslip",
+      "breakpoints": true
     }
   ]
 }

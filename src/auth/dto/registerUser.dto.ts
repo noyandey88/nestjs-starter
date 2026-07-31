@@ -18,3 +18,13 @@ export class RegisterDto {
   @IsString()
   password!: string;
 }
+
+export class LoginDto {
+  @ApiProperty()
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty()
+  @IsString()
+  password!: string;
+}

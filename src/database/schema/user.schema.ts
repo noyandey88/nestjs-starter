@@ -1,7 +1,16 @@
-import { serial } from 'drizzle-orm/pg-core';
-import { timestamp } from 'drizzle-orm/pg-core';
-import { varchar } from 'drizzle-orm/pg-core';
-import { pgTable } from 'drizzle-orm/pg-core';
+import {
+  pgEnum,
+  pgTable,
+  serial,
+  timestamp,
+  varchar,
+} from 'drizzle-orm/pg-core';
+import { UserRole } from 'src/user/user.types';
+
+export const userRoleEnum = pgEnum(
+  'user_role',
+  Object.values(UserRole) as [string, ...string[]],
+);
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -9,6 +18,7 @@ export const users = pgTable('users', {
   lastName: varchar('last_name', { length: 50 }).notNull(),
   email: varchar('email', { length: 100 }).unique().notNull(),
   password: varchar('password', { length: 255 }).notNull(),
+  role: userRoleEnum('role').notNull().default(UserRole.Student),
   createdAt: timestamp('created_At', {
     withTimezone: true,
     mode: 'date',

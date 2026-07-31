@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/registerUser.dto';
+import { LoginDto, RegisterDto } from './dto/registerUser.dto';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ResponseBuilder } from 'src/common/dto/api-response.dto';
 
@@ -30,6 +30,22 @@ export class AuthController {
     return ResponseBuilder.success(
       result,
       'User registered successfully',
+      HttpStatus.OK,
+    );
+  }
+
+  @ApiBody({ type: LoginDto })
+  @HttpCode(HttpStatus.OK)
+  @Post('login')
+  @ApiOperation({
+    summary: 'user login',
+    description: 'Login to your account with your credentials',
+  })
+  async login(@Body() loginUserDto: LoginDto) {
+    const result = await this.authService.loginUser(loginUserDto);
+    return ResponseBuilder.success(
+      result,
+      'User logged in successful',
       HttpStatus.OK,
     );
   }
