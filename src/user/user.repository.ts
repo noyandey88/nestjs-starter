@@ -21,6 +21,10 @@ export class UserRepository {
     });
   }
 
+  async findById(id: number): Promise<User | undefined> {
+    return await this.db.query.users.findFirst({ where: eq(users.id, id) });
+  }
+
   async createUser(userData: RegisterDto): Promise<NewUser> {
     const [user] = await this.db.insert(users).values(userData).returning();
     return user;

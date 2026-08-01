@@ -21,6 +21,15 @@ async function bootstrap() {
     .setTitle('Nestjs LMS')
     .setDescription('The LMS description')
     .setVersion('1.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter your JWT access token',
+      },
+      'access-token',
+    )
     // .addTag('lms')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);

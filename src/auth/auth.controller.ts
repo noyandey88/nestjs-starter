@@ -1,13 +1,32 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/registerUser.dto';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { ResponseBuilder } from 'src/common/dto/api-response.dto';
+import { AuthGuard } from './auth.guard';
+import { UserService } from 'src/user/user.service';
 
-@ApiTags('authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userService: UserService,
+  ) {}
 
   @ApiBody({ type: RegisterDto })
   @HttpCode(HttpStatus.OK)
@@ -46,6 +65,28 @@ export class AuthController {
     return ResponseBuilder.success(
       result,
       'User logged in successful',
+      HttpStatus.OK,
+    );
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard)
+  @Get('me')
+  @ApiOperation({
+    summary: 'current user',
+    description: 'you can get currently logged in user data',
+  })
+  async getUserProfile(@Request() req: { user: { sub: number } }) {
+    const userId = req.user.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User is is missing');
+    }
+
+    const result = await this.userService.findUserById(userId);
+    return ResponseBuilder.success(
+      result,
+      'Data loaded successfully',
       HttpStatus.OK,
     );
   }
