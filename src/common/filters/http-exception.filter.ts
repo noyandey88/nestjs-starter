@@ -10,6 +10,14 @@ import {
 import { Response } from 'express';
 import { getHttpStatusName } from '../dto/api-response.dto';
 
+interface PgError {
+  code?: string;
+  message?: string;
+  detail?: string;
+  constraint?: string;
+  stack?: string;
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -20,6 +28,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     let status: number = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string = 'Internal server error';
+
+    const pgError = this.extractPgError(exception);
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -36,31 +46,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
           message = exception.message;
         }
       }
-    } else if (
-      typeof exception === 'object' &&
-      exception !== null &&
-      'code' in exception
-    ) {
-      // Database errors (PostgreSQL / Drizzle ORM)
-      const dbError = exception as {
-        code?: string;
-        message?: string;
-        detail?: string;
-        stack?: string;
-      };
-      if (dbError.code === '23505') {
+    } else if (pgError) {
+      // Database errors (PostgreSQL / Drizzle ORM), whether top-level or wrapped in .cause
+      if (pgError.code === '23505') {
         status = HttpStatus.CONFLICT;
-        message = 'Email or unique field already exists';
-      } else if (dbError.code === '23502' || dbError.code === '23503') {
+        message = this.formatUniqueViolation(pgError);
+      } else if (pgError.code === '23502') {
         status = HttpStatus.BAD_REQUEST;
-        message = 'Database constraint violation';
+        message = 'A required field is missing';
+      } else if (pgError.code === '23503') {
+        status = HttpStatus.BAD_REQUEST;
+        message = 'Referenced record does not exist';
       } else {
         status = HttpStatus.INTERNAL_SERVER_ERROR;
         message = 'Database error occurred';
       }
       this.logger.error(
-        `Database Error [${dbError.code ?? ''}]: ${dbError.message || ''}`,
-        dbError.stack,
+        `Database Error [${pgError.code ?? ''}]: ${pgError.message || ''} ${pgError.detail || ''}`,
+        pgError.stack,
       );
     } else if (exception instanceof Error) {
       message = exception.message || 'Internal server error';
@@ -78,5 +81,39 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message,
       payload: null,
     });
+  }
+
+  private extractPgError(exception: unknown): PgError | null {
+    const hasCode = (e: unknown): e is PgError =>
+      typeof e === 'object' &&
+      e !== null &&
+      'code' in e &&
+      typeof (e as { code?: unknown }).code === 'string';
+
+    const findPgError = (value: unknown): PgError | null => {
+      if (hasCode(value)) {
+        return value;
+      }
+
+      if (typeof value === 'object' && value !== null && 'cause' in value) {
+        const cause = (value as { cause?: unknown }).cause;
+        return findPgError(cause);
+      }
+
+      return null;
+    };
+
+    return findPgError(exception);
+  }
+
+  private formatUniqueViolation(pgError: PgError): string {
+    const match = /Key \((.+)\)=\((.+)\) already exists/.exec(
+      pgError.detail || '',
+    );
+    if (match) {
+      const [, field, value] = match;
+      return `A record with ${field} '${value}' already exists`;
+    }
+    return 'A record with this value already exists';
   }
 }

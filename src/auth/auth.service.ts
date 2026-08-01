@@ -23,7 +23,7 @@ export class AuthService {
 
     const user = await this.userService.findUser(loginDto);
 
-    const payload = { sub: user.id };
+    const payload = { sub: user.id, email: user.email, role: user.role };
     const token = await this.jwtService.signAsync(payload);
 
     const expiresIn = 5 * 60; // 300 ms
