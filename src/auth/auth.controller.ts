@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/registerUser.dto';
+import { LoginDto, RefreshTokenDto, RegisterDto } from './dto/registerUser.dto';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -80,10 +80,38 @@ export class AuthController {
     const userId = req.user.sub;
 
     if (!userId) {
-      throw new BadRequestException('User is is missing');
+      throw new BadRequestException('User id is missing');
     }
 
     const result = await this.userService.findUserById(userId);
+    return ResponseBuilder.success(
+      result,
+      'Data loaded successfully',
+      HttpStatus.OK,
+    );
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard)
+  @Post('access-token/refresh')
+  @ApiOperation({
+    summary: 'Refresh access token',
+    description: 'Refresh the access token using a valid refresh token',
+  })
+  async refreshAccessToken(
+    @Body() refreshToken: RefreshTokenDto,
+    @Request() req: { user: { sub: number } },
+  ) {
+    const userId = req.user.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User id is missing');
+    }
+
+    const result = await this.authService.refreshAccessToken(
+      userId,
+      refreshToken.refreshToken,
+    );
     return ResponseBuilder.success(
       result,
       'Data loaded successfully',
