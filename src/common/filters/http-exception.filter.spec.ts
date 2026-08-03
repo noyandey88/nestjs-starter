@@ -1,5 +1,5 @@
 import { AllExceptionsFilter } from './http-exception.filter';
-import { ConflictException, HttpStatus } from '@nestjs/common';
+import { ConflictException, HttpStatus, Logger } from '@nestjs/common';
 import { ArgumentsHost } from '@nestjs/common';
 
 describe('AllExceptionsFilter', () => {
@@ -9,6 +9,7 @@ describe('AllExceptionsFilter', () => {
   let mockArgumentsHost: ArgumentsHost;
 
   beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     filter = new AllExceptionsFilter();
     mockStatus = jest.fn().mockReturnThis();
     mockJson = jest.fn().mockReturnThis();
@@ -48,8 +49,12 @@ describe('AllExceptionsFilter', () => {
     expect(mockJson).toHaveBeenCalledWith({
       success: false,
       status: 'CONFLICT',
-      message: 'Email or unique field already exists',
+      message: 'A record with this value already exists',
       payload: null,
     });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 });

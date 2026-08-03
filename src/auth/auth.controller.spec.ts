@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { JwtService } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { UserService } from 'src/user/user.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -14,6 +16,17 @@ describe('AuthController', () => {
           provide: AuthService,
           useValue: {
             registerUser: jest.fn(),
+          },
+        },
+        {
+          provide: UserService,
+          useValue: {},
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            signAsync: jest.fn(),
+            verifyAsync: jest.fn(),
           },
         },
       ],
