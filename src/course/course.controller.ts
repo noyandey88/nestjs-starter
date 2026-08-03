@@ -11,6 +11,7 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { CourseService } from './course.service';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -67,8 +68,8 @@ export class CourseController {
     summary: 'Retrieve a course by ID',
     description: 'Fetches a course by its unique identifier.',
   })
-  async findOne(@Param('id') id: string) {
-    const result = await this.courseService.findOne(+id);
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    const result = await this.courseService.findOne(id);
     return ResponseBuilder.success(result, 'Course retrieved successfully');
   }
 
@@ -76,20 +77,19 @@ export class CourseController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard)
-  @HttpCode(HttpStatus.OK)
   @Patch('update/:id')
   @ApiOperation({
     summary: 'Update a course',
     description: 'Updates the details of an existing course.',
   })
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateCourseDto: UpdateCourseDto,
     @Request() req: { user: { email: string } },
   ) {
     const updaterEmail = req.user.email || 'anonymous';
     const result = await this.courseService.update(
-      +id,
+      id,
       updateCourseDto,
       updaterEmail,
     );
@@ -105,7 +105,7 @@ export class CourseController {
     description: 'Deletes an existing course by its unique identifier.',
   })
   async remove(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { role: UserRole } },
   ) {
     const role = req.user.role;
@@ -116,7 +116,7 @@ export class CourseController {
       );
     }
 
-    const result = await this.courseService.remove(+id);
+    const result = await this.courseService.remove(id);
     return ResponseBuilder.success(result, 'Course removed successfully');
   }
 }
