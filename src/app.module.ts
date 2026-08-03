@@ -6,11 +6,15 @@ import { UserModule } from './user/user.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { CourseModule } from './course/course.module';
+import { validateEnv } from './config/env.validation';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnv,
+      envFilePath:
+        process.env.NODE_ENV === 'test' ? ['.env.test', '.env'] : ['.env'],
     }),
     AuthModule,
     UserModule,
