@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -17,6 +18,22 @@ import { validateEnv } from './config/env.validation';
       validate: validateEnv,
       envFilePath:
         process.env.NODE_ENV === 'test' ? ['.env.test', '.env'] : ['.env'],
+    }),
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const nodeEnv = config.get<string>('NODE_ENV');
+        return {
+          pinoHttp: {
+            level: nodeEnv === 'production' ? 'info' : 'debug',
+            redact: ['req.headers.authorization', 'req.headers.cookie'],
+            transport:
+              nodeEnv === 'development'
+                ? { target: 'pino-pretty', options: { singleLine: true } }
+                : undefined,
+          },
+        };
+      },
     }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
