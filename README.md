@@ -1,10 +1,10 @@
 # NestJS Starter
 
-Production-ready NestJS 11 starter template with Drizzle ORM (PostgreSQL), JWT authentication with rotating refresh tokens, and a consistent API response envelope.
+Production-ready NestJS 11 starter template with Drizzle ORM (PostgreSQL), JWT authentication with single-use refresh tokens, and a consistent API response envelope.
 
 ## Features
 
-- **Auth** — register/login, short-lived JWT access tokens, rotating refresh tokens (revoked on use), logout-everywhere
+- **Auth** — register/login, short-lived JWT access tokens, single-use refresh tokens (revoked on use), logout-everywhere
 - **Drizzle ORM** — typed schema, generated SQL migrations, Drizzle Studio
 - **Validated config** — boot fails fast with a clear error if required env vars are missing
 - **Security** — helmet, config-driven CORS, global rate limiting (stricter on auth endpoints)
@@ -42,8 +42,8 @@ pnpm start:dev                # http://localhost:3000, Swagger at /api
 
 ```
 src/
-  auth/       login, register, refresh rotation, AuthGuard
-  user/       user CRUD + /users/me
+  auth/       login, register, refresh-token revocation, AuthGuard
+  user/       authenticated user profile (GET /users/me)
   course/     demo resource — copy this to add your own
   database/   drizzle provider (DRIZZLE_ORM), schema/, pool lifecycle
   health/     GET /health (terminus + db ping)
@@ -55,7 +55,7 @@ src/
 
 Use `src/course/` as the reference. For a resource `book`:
 
-1. Define the table in `src/database/schema/book.schema.ts` and **re-export it from `src/database/schema/index.ts`** (required for `db.query.books` and migrations).
+1. Define the table in `src/database/schema/book.schema.ts` and **re-export it from `src/database/schema/index.ts`** (required for the runtime query API, e.g. `db.query.books` — `database.provider.ts` builds the Drizzle instance from that barrel). Migrations don't need it: `drizzle.config.ts` points at `src/database/schema/*` directly, so drizzle-kit discovers new schema files via that glob regardless.
 2. `pnpm db:generate && pnpm db:migrate`
 3. Create `src/book/` with `book.module.ts`, `book.controller.ts`, `book.service.ts`, `book.repository.ts`, and `dto/`. Inject the db in the repository via `@Inject(DRIZZLE_ORM)`; derive row types with `InferSelectModel`.
 4. Guard routes with `@UseGuards(AuthGuard)` + `@ApiBearerAuth('access-token')`; return `ResponseBuilder.success(...)`.
