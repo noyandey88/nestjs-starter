@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/user/user.service';
 import { RegisterDto, LoginDto } from './dto/registerUser.dto';
@@ -16,16 +16,12 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
   async registerUser(registerUserDto: RegisterDto) {
-    Logger.log(registerUserDto);
-
     const hash = await bcrypt.hash(registerUserDto.password, 10);
 
     return this.userService.createUser({ ...registerUserDto, password: hash });
   }
 
   async loginUser(loginDto: LoginDto) {
-    Logger.log(loginDto);
-
     const user = await this.userService.findUser(loginDto);
 
     const {

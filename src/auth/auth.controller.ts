@@ -2,13 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Get,
   HttpCode,
   HttpStatus,
   Post,
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshTokenDto, RegisterDto } from './dto/registerUser.dto';
 import {
@@ -28,6 +28,7 @@ export class AuthController {
     private readonly userService: UserService,
   ) {}
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiBody({ type: RegisterDto })
   @HttpCode(HttpStatus.OK)
   @Post('register')
@@ -53,6 +54,7 @@ export class AuthController {
     );
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiBody({ type: LoginDto })
   @HttpCode(HttpStatus.OK)
   @Post('login')
@@ -69,6 +71,7 @@ export class AuthController {
     );
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard)
   @Post('access-token/refresh')

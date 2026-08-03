@@ -11,8 +11,6 @@ export const DatabaseProvider: Provider = {
   useFactory: (config: ConfigService) => {
     const databaseUrl = config.get<string>('DATABASE_URL');
 
-    console.log('DATABASE_URL:', databaseUrl);
-
     const pool = new Pool({
       connectionString: databaseUrl,
     });
