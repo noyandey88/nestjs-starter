@@ -9,6 +9,7 @@ import { UserModule } from './user/user.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CourseModule } from './course/course.module';
+import { HealthModule } from './health/health.module';
 import { validateEnv } from './config/env.validation';
 
 @Module({
@@ -50,6 +51,7 @@ import { validateEnv } from './config/env.validation';
     UserModule,
     DatabaseModule,
     CourseModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
