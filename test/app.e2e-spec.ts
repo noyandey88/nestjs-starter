@@ -155,4 +155,19 @@ describe('API flow (e2e)', () => {
       .send({ refreshToken })
       .expect(401);
   });
+
+  it('POST /auth/logout revokes all refresh tokens', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/logout')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+  });
+
+  it('POST /auth/access-token/refresh fails with 401 after logout', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/access-token/refresh')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ refreshToken })
+      .expect(401);
+  });
 });

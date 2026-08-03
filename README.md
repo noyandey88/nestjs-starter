@@ -77,6 +77,8 @@ docker build -t nestjs-starter .
 JWT_SECRET=your-secret docker compose --profile full up   # postgres + api
 ```
 
+Once postgres is up, apply migrations once (postgres publishes 5432 to the host): `pnpm db:migrate`.
+
 ## License
 
 UNLICENSED — use as a template for your own projects.

@@ -99,4 +99,28 @@ export class AuthController {
       HttpStatus.OK,
     );
   }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiBearerAuth('access-token')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('logout')
+  @ApiOperation({
+    summary: 'Logout everywhere',
+    description: 'Revokes all refresh tokens for the current user',
+  })
+  async logout(@Request() req: { user: { sub: number } }) {
+    const userId = req.user.sub;
+
+    if (!userId) {
+      throw new BadRequestException('User id is missing');
+    }
+
+    await this.authService.logout(userId);
+    return ResponseBuilder.success(
+      null,
+      'Logged out successfully',
+      HttpStatus.OK,
+    );
+  }
 }

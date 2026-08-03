@@ -16,6 +16,7 @@ describe('AuthController', () => {
           provide: AuthService,
           useValue: {
             registerUser: jest.fn(),
+            logout: jest.fn(),
           },
         },
         {
@@ -62,6 +63,21 @@ describe('AuthController', () => {
       status: 'OK',
       message: 'User registered successfully',
       payload: mockUser,
+    });
+  });
+
+  it('should logout the user and return formatted response', async () => {
+    jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
+
+    const response = await controller.logout({ user: { sub: 1 } });
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(authService.logout).toHaveBeenCalledWith(1);
+    expect(response).toEqual({
+      success: true,
+      status: 'OK',
+      message: 'Logged out successfully',
+      payload: null,
     });
   });
 });

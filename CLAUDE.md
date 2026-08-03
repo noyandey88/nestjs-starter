@@ -15,7 +15,7 @@ pnpm lint               # eslint with --fix
 pnpm format             # prettier on src/ and test/
 
 pnpm test               # run all unit tests (*.spec.ts under src/)
-pnpm test -- user.service   # run a single test file (jest pattern match)
+pnpm test -- course.service   # run a single test file (jest pattern match)
 pnpm test:watch
 
 pnpm db:generate        # generate a Drizzle migration from schema changes
