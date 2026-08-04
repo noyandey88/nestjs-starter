@@ -1,17 +1,8 @@
 // src/common/dto/api-response.dto.ts
 import { HttpStatus } from '@nestjs/common';
+export { getHttpStatusName } from '../utils/http-status.util';
+import { getHttpStatusName } from '../utils/http-status.util';
 import { ApiResponse } from '../interfaces/api-response.interface';
-
-export function getHttpStatusName(status: number | string): string {
-  if (typeof status === 'number') {
-    return HttpStatus[status] || 'UNKNOWN_STATUS';
-  }
-  const numeric = Number(status);
-  if (!isNaN(numeric) && HttpStatus[numeric]) {
-    return HttpStatus[numeric];
-  }
-  return status;
-}
 
 export class ResponseBuilder {
   static success<T>(
