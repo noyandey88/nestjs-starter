@@ -46,7 +46,6 @@ async function bootstrap() {
       },
       'access-token',
     )
-    // .addTag('lms')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
