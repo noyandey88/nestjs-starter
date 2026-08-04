@@ -14,6 +14,11 @@ export class ErrorResponseDto {
   @ApiProperty({ example: 'Validation failed' })
   message!: string;
 
-  @ApiProperty({ example: null, nullable: true })
+  @ApiProperty({
+    example: null,
+    type: 'object',
+    nullable: true,
+    additionalProperties: false,
+  })
   payload!: null;
 }
