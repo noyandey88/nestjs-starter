@@ -63,13 +63,19 @@ personal overrides) → `env/.env.<stage>.local` (gitignored) →
 `env/.env.<stage>` (committed). Real deployments can inject secrets as
 process env — injected values always beat the files.
 
-Run a stage locally:
+Switch the instance by editing one constant — `APP_MODE` in
+`src/config/app-mode.ts`:
 
-```bash
-APP_ENV=staging pnpm start:dev
+```ts
+export const APP_MODE: AppEnv = 'production';
 ```
 
-Jest/e2e always resolve to the `test` instance (`env/.env.test`).
+Then run the app normally (`pnpm start:dev`, or `pnpm build && pnpm
+start:prod`). The drizzle CLI follows the same switch, so `pnpm
+db:migrate` targets the selected instance's database. An injected
+`APP_ENV` env var overrides the constant (the Docker image sets
+`APP_ENV=production`), and Jest/e2e always resolve to the `test`
+instance (`env/.env.test`) regardless of the mode.
 
 Drizzle commands (`db:generate`, `db:migrate`, `db:push`, `db:studio`) load the
 same cascade, so they honor `APP_ENV` too, e.g. `APP_ENV=staging pnpm db:migrate`.

@@ -1,3 +1,4 @@
+import { APP_MODE } from './app-mode';
 import { validateEnv, APP_ENVS } from './env.validation';
 
 const base = {
@@ -10,7 +11,7 @@ const base = {
 describe('validateEnv', () => {
   it('accepts a minimal valid config and applies defaults', () => {
     const env = validateEnv(base);
-    expect(env.APP_ENV).toBe('local');
+    expect(env.APP_ENV).toBe(APP_MODE);
     expect(env.NODE_ENV).toBe('development');
     expect(env.PORT).toBe(3000);
     expect(env.LOG_PRETTY).toBe(false);

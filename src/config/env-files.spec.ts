@@ -1,11 +1,20 @@
+import { APP_MODE } from './app-mode';
 import { resolveEnvFiles } from './env-files';
 
 describe('resolveEnvFiles', () => {
-  it('returns the local cascade by default', () => {
+  it('falls back to the APP_MODE constant by default', () => {
     expect(resolveEnvFiles({})).toEqual([
       '.env',
-      'env/.env.local.local',
-      'env/.env.local',
+      `env/.env.${APP_MODE}.local`,
+      `env/.env.${APP_MODE}`,
+    ]);
+  });
+
+  it('honors an explicit default stage argument', () => {
+    expect(resolveEnvFiles({}, 'beta')).toEqual([
+      '.env',
+      'env/.env.beta.local',
+      'env/.env.beta',
     ]);
   });
 

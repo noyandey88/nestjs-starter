@@ -33,10 +33,12 @@ pnpm test:e2e           # e2e tests (test/jest-e2e.json) — requires:
 Config is zod-validated at boot (`src/config/env.validation.ts`,
 `validateEnv`) — `DATABASE_URL`, `JWT_SECRET`, `THROTTLE_TTL`, and
 `THROTTLE_LIMIT` are required; everything else has schema defaults; the
-app fails fast with a descriptive error. `APP_ENV`
-(`local|test|dev|staging|beta|production`, default `local`) selects the
-instance: `ConfigModule` loads, in precedence order, process env →
-`.env` → `env/.env.<APP_ENV>.local` → `env/.env.<APP_ENV>`
+app fails fast with a descriptive error. The instance
+(`local|test|dev|staging|beta|production`) is selected by the `APP_MODE`
+constant in `src/config/app-mode.ts` — edit that one value to switch;
+an injected `APP_ENV` env var overrides it (Docker sets
+`APP_ENV=production`). `ConfigModule` loads, in precedence order,
+process env → `.env` → `env/.env.<stage>.local` → `env/.env.<stage>`
 (`src/config/env-files.ts`). The committed `env/` files each set
 `NODE_ENV` and the behavior flags (`LOG_LEVEL`, `LOG_PRETTY`,
 `LOG_HTTP_BODIES`, `SWAGGER_ENABLED`) — app code reads flags, never
