@@ -1,58 +1,66 @@
-# Multi-Instance Environment Management Implementation Plan
+# Multi-Instance Environment Management Implementation Plan (v2)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add `APP_ENV`-selected instances (dev, staging, beta, production) managed from one committed `env/` directory, with secrets kept out of git and injected process env always winning.
+**Goal:** Zod-validated, `APP_ENV`-selected instances (local, test, dev, staging, beta, production) managed from one committed `env/` directory, with behavior driven by explicit flags (`LOG_PRETTY`, `LOG_HTTP_BODIES`, `SWAGGER_ENABLED`, `LOG_LEVEL`) instead of `NODE_ENV` name-checks — and the logger config extracted out of `app.module.ts`.
 
-**Architecture:** A pure `resolveEnvFiles` helper computes the ordered `envFilePath` list for `ConfigModule` from `APP_ENV`/`NODE_ENV`. Committed `env/.env.<stage>` files hold non-secret per-stage values (each sets the right `NODE_ENV`); the gitignored `.env` holds local secrets; `@nestjs/config` gives process env top precedence and earlier files precedence over later ones. `APP_ENV` joins the validated schema.
+**Architecture:** `src/config/env.validation.ts` becomes a zod schema (`validateEnv` keeps its name/signature so ConfigModule wiring is untouched); a pure `resolveEnvFiles` helper computes the envFilePath cascade; committed `env/.env.<stage>` files carry per-instance values (user's explicit decision: values are pushed to GitHub; injected process env always wins); `src/config/logger.config.ts` owns the pino options; `app.module.ts` shrinks to a thin module list; `main.ts` consults flags.
 
-**Tech Stack:** NestJS 11 `@nestjs/config`, class-validator, Jest 30, pnpm.
+**Tech Stack:** NestJS 11 `@nestjs/config`, zod (new runtime dep), nestjs-pino, Jest 30, pnpm.
 
 ## Global Constraints
 
-- Spec: `docs/superpowers/specs/2026-08-04-multi-instance-env-design.md`.
-- Stages are exactly `dev | staging | beta | production` (constant `APP_ENVS`); default `dev`. `NODE_ENV` meaning is unchanged (`development | production | test`).
-- Precedence (first wins): process env → `.env` → `env/.env.<APP_ENV>.local` → `env/.env.<APP_ENV>` → `env/.env.defaults`. In `@nestjs/config`, process env beats files by default and **earlier `envFilePath` entries beat later ones** — the returned array order IS the precedence order.
-- Test mode unchanged: when `NODE_ENV === 'test'`, the file list stays `['.env.test', '.env']` (Jest runs are stage-less). `test/app.e2e-spec.ts` must not be edited.
-- Committed `env/` files contain **no secrets** — never `DATABASE_URL` or `JWT_SECRET` values.
-- pnpm only; no console.log.
-- The full suite (`pnpm test`), lint, and build must stay green after every task.
+- Spec (v2): `docs/superpowers/specs/2026-08-04-multi-instance-env-design.md`.
+- `APP_ENVS = ['local', 'test', 'dev', 'staging', 'beta', 'production']` exactly; default `local`. `NODE_ENV` keeps meaning `development|test|production` and is set by stage files.
+- Boolean flags use the booleanString pattern — `z.enum(['true','false']).default('false').transform(v => v === 'true')` — never `z.coerce.boolean()` (it coerces the string "false" to true).
+- Precedence (first wins): process env → `.env` → `env/.env.<APP_ENV>.local` → `env/.env.<APP_ENV>`. In `@nestjs/config`, process env beats files and earlier envFilePath entries beat later ones.
+- `test/app.e2e-spec.ts` must not be edited. `test:e2e` keeps `NODE_ENV=test`.
+- Committed `env/` files ARE pushed with values (user's call). Root `.env.test` is deleted; its `DATABASE_URL`/`JWT_SECRET` move verbatim into `env/.env.test` (CI depends on them).
+- `THROTTLE_TTL`/`THROTTLE_LIMIT` are REQUIRED by the schema (no defaults) — every stage file must define them.
+- App code never name-checks env stages for feature decisions — flags only. (The single allowed `NODE_ENV` read is the LOG_LEVEL fallback inside logger.config.)
+- pnpm only; no console.log. Full suite, lint, build green after every task.
 
 ## File Structure
 
 ```
-src/config/env-files.ts            (new — resolveEnvFiles helper)
+src/config/env.validation.ts       (full zod rewrite; validateEnv keeps name+signature)
+src/config/env.validation.spec.ts  (full rewrite for zod cases)
+src/config/env-files.ts            (new — resolveEnvFiles)
 src/config/env-files.spec.ts       (new)
-src/config/env.validation.ts       (add APP_ENVS/AppEnv/APP_ENV field)
-src/config/env.validation.spec.ts  (add APP_ENV cases)
-src/app.module.ts                  (envFilePath: resolveEnvFiles(process.env))
-env/.env.defaults                  (new, committed)
-env/.env.dev                       (new, committed)
-env/.env.staging                   (new, committed)
-env/.env.beta                      (new, committed)
-env/.env.production                (new, committed)
-.gitignore                         (ignore env/.env.*.local)
-docker-compose.yml                 (api: APP_ENV)
-Dockerfile                         (ENV APP_ENV + copy env/)
-.env.example                       (rewritten)
-README.md, CLAUDE.md               (Environments docs)
+src/config/logger.config.ts        (new — createLoggerOptions, extracted from app.module)
+src/app.module.ts                  (envFilePath + thin LoggerModule wiring)
+src/main.ts                        (flag-gated DebugPayloadInterceptor + Swagger)
+env/.env.{local,test,dev,staging,beta,production}  (new, committed with values)
+.env.test                          (DELETED — content moves to env/.env.test)
+.gitignore                         (env/.env.*.local)
+package.json                       (+zod; db:*:test scripts point at env/.env.test)
+docker-compose.yml, Dockerfile     (APP_ENV, copy env/)
+.env.example, README.md, CLAUDE.md (docs)
 ```
 
 ---
 
-### Task 1: `resolveEnvFiles` helper + `APP_ENV` validation
+### Task 1: Zod env schema + `resolveEnvFiles` helper
 
 **Files:**
+- Modify: `src/config/env.validation.ts` (full replacement)
+- Modify: `src/config/env.validation.spec.ts` (full replacement)
 - Create: `src/config/env-files.ts`
 - Create: `src/config/env-files.spec.ts`
-- Modify: `src/config/env.validation.ts`
-- Modify: `src/config/env.validation.spec.ts`
+- Modify: `package.json` + `pnpm-lock.yaml` (add zod)
 
 **Interfaces:**
 - Consumes: nothing new.
-- Produces (Task 2 relies on these exact names): `resolveEnvFiles(env: { APP_ENV?: string; NODE_ENV?: string }): string[]` from `src/config/env-files`; `APP_ENVS`, `AppEnv`, and the `APP_ENV` field on `EnvironmentVariables` from `src/config/env.validation`.
+- Produces (Task 2 relies on these exact names): `validateEnv(config: Record<string, unknown>): Env`, `APP_ENVS`, `type Env` from `src/config/env.validation`; `resolveEnvFiles(env: { APP_ENV?: string; NODE_ENV?: string }): string[]` from `src/config/env-files`.
+- Compatibility sweep before finishing: `grep -rn "EnvironmentVariables\|NodeEnv\|NODE_ENVS" src test` — those class-validator-era exports are removed; update or remove any stray importer (expected: none outside `src/config/`).
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Install zod**
+
+```bash
+pnpm add zod
+```
+
+- [ ] **Step 2: Write the failing tests**
 
 `src/config/env-files.spec.ts`:
 
@@ -60,12 +68,11 @@ README.md, CLAUDE.md               (Environments docs)
 import { resolveEnvFiles } from './env-files';
 
 describe('resolveEnvFiles', () => {
-  it('returns the dev cascade by default', () => {
+  it('returns the local cascade by default', () => {
     expect(resolveEnvFiles({})).toEqual([
       '.env',
-      'env/.env.dev.local',
-      'env/.env.dev',
-      'env/.env.defaults',
+      'env/.env.local.local',
+      'env/.env.local',
     ]);
   });
 
@@ -74,14 +81,22 @@ describe('resolveEnvFiles', () => {
       '.env',
       'env/.env.staging.local',
       'env/.env.staging',
-      'env/.env.defaults',
     ]);
   });
 
-  it('keeps the stage-less test cascade when NODE_ENV is test', () => {
+  it('maps NODE_ENV=test to the test stage regardless of APP_ENV', () => {
     expect(resolveEnvFiles({ NODE_ENV: 'test', APP_ENV: 'staging' })).toEqual([
-      '.env.test',
       '.env',
+      'env/.env.test.local',
+      'env/.env.test',
+    ]);
+  });
+
+  it('maps APP_ENV=test to the test stage', () => {
+    expect(resolveEnvFiles({ APP_ENV: 'test' })).toEqual([
+      '.env',
+      'env/.env.test.local',
+      'env/.env.test',
     ]);
   });
 
@@ -90,54 +105,169 @@ describe('resolveEnvFiles', () => {
       '.env',
       'env/.env.nonsense.local',
       'env/.env.nonsense',
-      'env/.env.defaults',
     ]);
   });
 });
 ```
 
-Append to `src/config/env.validation.spec.ts` (inside the existing
-`describe('validateEnv', ...)` block, using the same base-config pattern
-the file already uses for other cases — reuse its existing minimal valid
-config object/helper):
+`src/config/env.validation.spec.ts` (full replacement):
 
 ```typescript
-  it('defaults APP_ENV to dev', () => {
-    const result = validateEnv({
-      DATABASE_URL: 'postgresql://x',
-      JWT_SECRET: 's',
-    });
-    expect(result.APP_ENV).toBe('dev');
+import { validateEnv, APP_ENVS } from './env.validation';
+
+const base = {
+  DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/db',
+  JWT_SECRET: 'secret',
+  THROTTLE_TTL: '60',
+  THROTTLE_LIMIT: '100',
+};
+
+describe('validateEnv', () => {
+  it('accepts a minimal valid config and applies defaults', () => {
+    const env = validateEnv(base);
+    expect(env.APP_ENV).toBe('local');
+    expect(env.NODE_ENV).toBe('development');
+    expect(env.PORT).toBe(3000);
+    expect(env.LOG_PRETTY).toBe(false);
+    expect(env.LOG_HTTP_BODIES).toBe(false);
+    expect(env.SWAGGER_ENABLED).toBe(false);
+    expect(env.JWT_ACCESS_EXPIRES_IN).toBe(300);
+    expect(env.JWT_REFRESH_EXPIRES_IN).toBe(604800);
+    expect(env.CORS_ORIGINS).toBe('');
   });
 
   it('accepts each known APP_ENV stage', () => {
-    for (const stage of ['dev', 'staging', 'beta', 'production']) {
-      const result = validateEnv({
-        DATABASE_URL: 'postgresql://x',
-        JWT_SECRET: 's',
-        APP_ENV: stage,
-      });
-      expect(result.APP_ENV).toBe(stage);
+    for (const stage of APP_ENVS) {
+      expect(validateEnv({ ...base, APP_ENV: stage }).APP_ENV).toBe(stage);
     }
   });
 
-  it('throws on an unknown APP_ENV', () => {
-    expect(() =>
-      validateEnv({
-        DATABASE_URL: 'postgresql://x',
-        JWT_SECRET: 's',
-        APP_ENV: 'qa',
-      }),
-    ).toThrow(/APP_ENV/);
+  it('rejects an unknown APP_ENV', () => {
+    expect(() => validateEnv({ ...base, APP_ENV: 'qa' })).toThrow(/APP_ENV/);
   });
+
+  it('parses boolean flags from strings — including the "false" trap', () => {
+    expect(validateEnv({ ...base, LOG_PRETTY: 'true' }).LOG_PRETTY).toBe(true);
+    expect(validateEnv({ ...base, LOG_PRETTY: 'false' }).LOG_PRETTY).toBe(
+      false,
+    );
+  });
+
+  it('rejects non true/false boolean flag values', () => {
+    expect(() => validateEnv({ ...base, SWAGGER_ENABLED: 'yes' })).toThrow(
+      /SWAGGER_ENABLED/,
+    );
+  });
+
+  it('requires THROTTLE_TTL and THROTTLE_LIMIT', () => {
+    const { THROTTLE_TTL: _t, ...withoutTtl } = base;
+    expect(() => validateEnv(withoutTtl)).toThrow(/THROTTLE_TTL/);
+    const { THROTTLE_LIMIT: _l, ...withoutLimit } = base;
+    expect(() => validateEnv(withoutLimit)).toThrow(/THROTTLE_LIMIT/);
+  });
+
+  it('coerces numeric strings', () => {
+    const env = validateEnv({ ...base, PORT: '8080', THROTTLE_TTL: '30' });
+    expect(env.PORT).toBe(8080);
+    expect(env.THROTTLE_TTL).toBe(30);
+  });
+
+  it('rejects a non-URL DATABASE_URL', () => {
+    expect(() => validateEnv({ ...base, DATABASE_URL: 'not-a-url' })).toThrow(
+      /DATABASE_URL/,
+    );
+  });
+
+  it('enforces the LOG_LEVEL enum and leaves it optional', () => {
+    expect(validateEnv(base).LOG_LEVEL).toBeUndefined();
+    expect(validateEnv({ ...base, LOG_LEVEL: 'warn' }).LOG_LEVEL).toBe('warn');
+    expect(() => validateEnv({ ...base, LOG_LEVEL: 'loud' })).toThrow(
+      /LOG_LEVEL/,
+    );
+  });
+});
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 3: Run tests to verify they fail**
 
 Run: `pnpm test -- env-files` and `pnpm test -- env.validation`
-Expected: env-files FAILS (module not found); the three new validation cases FAIL (`APP_ENV` stripped by whitelist, so `result.APP_ENV` is undefined and the unknown-stage case does not throw).
+Expected: env-files FAILS (module not found); env.validation FAILS (old class-validator implementation).
 
-- [ ] **Step 3: Implement**
+- [ ] **Step 4: Implement**
+
+Version note: `pnpm add zod` installs zod v4, where `z.string().url()`
+is removed — use `z.url()` for `DATABASE_URL` in that case (identical
+semantics). If v3 got installed, `z.string().url()` is correct. Check
+`node_modules/zod/package.json` version and use the matching form; the
+code below shows the v3 form.
+
+`src/config/env.validation.ts` (full replacement):
+
+```typescript
+// src/config/env.validation.ts
+import { z } from 'zod';
+
+export const APP_ENVS = [
+  'local',
+  'test',
+  'dev',
+  'staging',
+  'beta',
+  'production',
+] as const;
+export type AppEnv = (typeof APP_ENVS)[number];
+
+const booleanString = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((v) => v === 'true');
+// NB: z.coerce.boolean() is a trap — it coerces the *string* "false" to true.
+
+const envSchema = z.object({
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
+  APP_ENV: z.enum(APP_ENVS).default('local'),
+
+  PORT: z.coerce.number().int().positive().default(3000),
+
+  // Logging — values, not name-checks
+  LOG_LEVEL: z
+    .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'])
+    .optional(),
+  LOG_PRETTY: booleanString,
+  LOG_HTTP_BODIES: booleanString,
+
+  SWAGGER_ENABLED: booleanString,
+
+  // Same code everywhere, different numbers per stage file (required).
+  THROTTLE_TTL: z.coerce.number().int().positive(),
+  THROTTLE_LIMIT: z.coerce.number().int().positive(),
+
+  DATABASE_URL: z.string().url(),
+  JWT_SECRET: z.string().min(1),
+  /** Access-token lifetime in seconds. */
+  JWT_ACCESS_EXPIRES_IN: z.coerce.number().int().positive().default(300),
+  /** Refresh-token lifetime in seconds. */
+  JWT_REFRESH_EXPIRES_IN: z.coerce.number().int().positive().default(604800),
+  /** Comma-separated list of allowed origins. Empty disables CORS. */
+  CORS_ORIGINS: z.string().default(''),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+export function validateEnv(config: Record<string, unknown>): Env {
+  const result = envSchema.safeParse(config);
+  if (!result.success) {
+    throw new Error(
+      `Invalid environment configuration:\n${result.error.issues
+        .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+        .join('\n')}`,
+    );
+  }
+  return result.data;
+}
+```
 
 `src/config/env-files.ts`:
 
@@ -146,239 +276,377 @@ Expected: env-files FAILS (module not found); the three new validation cases FAI
  * Computes the ordered envFilePath list for ConfigModule. Earlier entries
  * take precedence in @nestjs/config, and injected process env always
  * beats every file. Missing files are skipped silently, so an unknown
- * stage falls through to validation, which rejects it at boot.
+ * stage falls through to validateEnv, which rejects it at boot.
+ * NODE_ENV=test (Jest) always resolves to the `test` stage.
  */
 export function resolveEnvFiles(env: {
   APP_ENV?: string;
   NODE_ENV?: string;
 }): string[] {
-  if (env.NODE_ENV === 'test') {
-    return ['.env.test', '.env'];
-  }
-  const stage = env.APP_ENV ?? 'dev';
-  return [
-    '.env',
-    `env/.env.${stage}.local`,
-    `env/.env.${stage}`,
-    'env/.env.defaults',
-  ];
+  const stage = env.NODE_ENV === 'test' ? 'test' : (env.APP_ENV ?? 'local');
+  return ['.env', `env/.env.${stage}.local`, `env/.env.${stage}`];
 }
 ```
 
-`src/config/env.validation.ts` — add below the `NODE_ENVS` export:
-
-```typescript
-export const APP_ENVS = ['dev', 'staging', 'beta', 'production'] as const;
-export type AppEnv = (typeof APP_ENVS)[number];
-```
-
-and add the field to `EnvironmentVariables` directly under the
-`NODE_ENV` property:
-
-```typescript
-  /** Deployment instance; selects which env/.env.<stage> file loads. */
-  @IsIn(APP_ENVS)
-  @IsOptional()
-  APP_ENV: AppEnv = 'dev';
-```
-
-- [ ] **Step 4: Run tests**
-
-Run: `pnpm test -- env-files`, `pnpm test -- env.validation`, then `pnpm test`, `pnpm lint`, `pnpm build`.
-Expected: all green.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Compatibility sweep + full suite**
 
 ```bash
-git add src/config
-git commit -m "feat: add APP_ENV stage validation and env-file resolution helper"
+grep -rn "EnvironmentVariables\|NodeEnv\|NODE_ENVS" src test
+```
+Expected: no matches outside `src/config/` (fix any stray importer to use `Env`/`APP_ENVS`).
+
+Run: `pnpm test`, `pnpm lint`, `pnpm build` — green. (Unit tests never boot the app; stage files arrive in Task 2.)
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/config package.json pnpm-lock.yaml
+git commit -m "feat: zod env schema with APP_ENV stages and behavior flags"
 ```
 
 ---
 
-### Task 2: `env/` directory + ConfigModule wiring + gitignore
+### Task 2: `env/` directory + logger extraction + flag-driven consumers (atomic)
+
+The stage files, the ConfigModule wiring, the logger extraction, and the
+flag gates land together so the app is bootable and the test cascade
+never breaks mid-plan. Do not split.
 
 **Files:**
-- Create: `env/.env.defaults`, `env/.env.dev`, `env/.env.staging`, `env/.env.beta`, `env/.env.production`
-- Modify: `src/app.module.ts` (envFilePath)
+- Create: `env/.env.local`, `env/.env.test`, `env/.env.dev`, `env/.env.staging`, `env/.env.beta`, `env/.env.production`
+- Delete: `.env.test` (its DATABASE_URL/JWT_SECRET move verbatim into `env/.env.test`)
+- Create: `src/config/logger.config.ts`
+- Modify: `src/app.module.ts` (envFilePath; LoggerModule block shrinks to the extracted factory)
+- Modify: `src/main.ts` (flag gates)
+- Modify: `package.json` (`db:create:test`, `db:migrate:test` → `dotenv -e env/.env.test`)
 - Modify: `.gitignore`
 
 **Interfaces:**
-- Consumes: `resolveEnvFiles` from `src/config/env-files` (Task 1).
-- Produces: the committed stage files Task 3 documents.
+- Consumes: `resolveEnvFiles`, the zod flags (Task 1).
+- Produces: `createLoggerOptions(config: ConfigService): Params` from `src/config/logger.config` (nestjs-pino `Params`); bootable per-stage instances Task 3 documents and verifies.
 
-- [ ] **Step 1: Create the stage files**
-
-`env/.env.defaults`:
+- [ ] **Step 1: Read the current root `.env.test`**
 
 ```bash
-# Shared baseline for every stage. Overridden by env/.env.<APP_ENV>,
-# then .env, then injected process env (which always wins).
-# Secrets (DATABASE_URL, JWT_SECRET) NEVER live in committed files —
-# put them in the gitignored .env locally, or inject them in deployments.
-JWT_ACCESS_EXPIRES_IN=300
-JWT_REFRESH_EXPIRES_IN=604800
-CORS_ORIGINS=
+cat .env.test
+```
+Carry its `DATABASE_URL` and `JWT_SECRET` values into `env/.env.test`
+byte-for-byte (CI's postgres service depends on them).
+
+- [ ] **Step 2: Create the six stage files**
+
+`env/.env.local`:
+
+```bash
+# Developer machine (default instance — APP_ENV unset resolves here).
+# Personal overrides go in the gitignored .env; injected env always wins.
+NODE_ENV=development
+PORT=3000
+LOG_PRETTY=true
+LOG_HTTP_BODIES=true
+SWAGGER_ENABLED=true
 THROTTLE_TTL=60
 THROTTLE_LIMIT=100
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nestjs_starter
+JWT_SECRET=local-dev-secret-change-me
+```
+
+`env/.env.test` (DATABASE_URL/JWT_SECRET copied verbatim from the old
+root `.env.test`; throttle generous so Jest never trips the limiter):
+
+```bash
+# Jest / e2e instance (NODE_ENV=test always resolves here).
+NODE_ENV=test
+PORT=3000
+LOG_PRETTY=false
+LOG_HTTP_BODIES=false
+SWAGGER_ENABLED=false
+THROTTLE_TTL=60
+THROTTLE_LIMIT=1000
+DATABASE_URL=<copied from old .env.test>
+JWT_SECRET=<copied from old .env.test>
 ```
 
 `env/.env.dev`:
 
 ```bash
-# Local development instance (default when APP_ENV is unset).
+# Deployed shared dev instance.
 NODE_ENV=development
 PORT=3000
+LOG_PRETTY=false
+LOG_HTTP_BODIES=true
+SWAGGER_ENABLED=true
+THROTTLE_TTL=60
+THROTTLE_LIMIT=100
+DATABASE_URL=postgresql://nestjs:change-me@dev-db:5432/nestjs_starter
+JWT_SECRET=dev-secret-change-me
 ```
 
 `env/.env.staging`:
 
 ```bash
-# Staging instance — production runtime behavior, staging values.
+# Staging — production runtime behavior, staging values.
+# Real DATABASE_URL/JWT_SECRET are injected by the deployment (they win).
 NODE_ENV=production
 PORT=3000
+LOG_PRETTY=false
+LOG_HTTP_BODIES=false
+SWAGGER_ENABLED=true
+THROTTLE_TTL=60
+THROTTLE_LIMIT=100
+DATABASE_URL=postgresql://nestjs:change-me@staging-db:5432/nestjs_starter
+JWT_SECRET=staging-secret-change-me
 ```
 
 `env/.env.beta`:
 
 ```bash
-# Beta instance — production runtime behavior, beta values.
+# Beta — production runtime behavior, beta values.
+# Real DATABASE_URL/JWT_SECRET are injected by the deployment (they win).
 NODE_ENV=production
 PORT=3000
+LOG_PRETTY=false
+LOG_HTTP_BODIES=false
+SWAGGER_ENABLED=true
+THROTTLE_TTL=60
+THROTTLE_LIMIT=100
+DATABASE_URL=postgresql://nestjs:change-me@beta-db:5432/nestjs_starter
+JWT_SECRET=beta-secret-change-me
 ```
 
 `env/.env.production`:
 
 ```bash
-# Production instance.
+# Production. Real DATABASE_URL/JWT_SECRET are injected by the
+# deployment (injected env always wins over this file).
 NODE_ENV=production
 PORT=3000
+LOG_PRETTY=false
+LOG_HTTP_BODIES=false
+SWAGGER_ENABLED=false
+THROTTLE_TTL=60
+THROTTLE_LIMIT=60
+DATABASE_URL=postgresql://nestjs:change-me@prod-db:5432/nestjs_starter
+JWT_SECRET=production-secret-change-me
 ```
 
-- [ ] **Step 2: Wire ConfigModule**
+Then delete the root test file:
 
-In `src/app.module.ts`, add the import:
+```bash
+git rm .env.test
+```
+
+- [ ] **Step 3: Extract the logger config**
+
+`src/config/logger.config.ts` (new — the pino options move here from
+app.module verbatim except the flag-driven conditions):
+
+```typescript
+// src/config/logger.config.ts
+import { ConfigService } from '@nestjs/config';
+import { Params } from 'nestjs-pino';
+
+/**
+ * Pino options for LoggerModule.forRootAsync. Behavior is driven by
+ * validated flags (LOG_LEVEL, LOG_PRETTY, LOG_HTTP_BODIES) — never by
+ * env-name checks. Redaction is always on.
+ */
+export function createLoggerOptions(config: ConfigService): Params {
+  const level =
+    config.get<string>('LOG_LEVEL') ??
+    (config.get<string>('NODE_ENV') === 'production' ? 'info' : 'debug');
+  const httpBodies = config.get<boolean>('LOG_HTTP_BODIES');
+
+  return {
+    pinoHttp: {
+      level,
+      redact: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        'req.body.password',
+        'req.body.refreshToken',
+        'payload.accessToken',
+        'payload.refreshToken',
+      ],
+      // LOG_HTTP_BODIES: trim the per-request log to what debugging
+      // needs (method, url, body, status). Otherwise pino-http defaults —
+      // full headers, no bodies (PII-safe).
+      serializers: httpBodies
+        ? {
+            req: (req: {
+              method: string;
+              url: string;
+              raw?: { body?: unknown };
+            }) => ({
+              method: req.method,
+              url: req.url,
+              body: req.raw?.body,
+            }),
+            res: (res: { statusCode: number }) => ({
+              statusCode: res.statusCode,
+            }),
+          }
+        : undefined,
+      transport: config.get<boolean>('LOG_PRETTY')
+        ? {
+            target: 'pino-pretty',
+            options: {
+              singleLine: true,
+              translateTime: 'HH:MM:ss',
+              ignore: 'pid,hostname',
+              messageFormat:
+                '{if req.method}{req.method} {req.url} {end}{if res.statusCode}→ {res.statusCode} ({responseTime}ms) {end}{msg}',
+            },
+          }
+        : undefined,
+    },
+  };
+}
+```
+
+- [ ] **Step 4: Slim `app.module.ts`**
+
+Add imports:
 
 ```typescript
 import { resolveEnvFiles } from './config/env-files';
+import { createLoggerOptions } from './config/logger.config';
 ```
 
-and replace:
-
-```typescript
-      envFilePath:
-        process.env.NODE_ENV === 'test' ? ['.env.test', '.env'] : ['.env'],
-```
-
-with:
+Replace the envFilePath line:
 
 ```typescript
       envFilePath: resolveEnvFiles(process.env),
 ```
 
-- [ ] **Step 3: gitignore the local-override escape hatch**
+Replace the entire `LoggerModule.forRootAsync({...})` block with:
 
-In `.gitignore`, in the existing "dotenv environment variable files"
-block, add one line:
+```typescript
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: createLoggerOptions,
+    }),
+```
+
+- [ ] **Step 5: Flag gates in `main.ts`**
+
+Replace the DebugPayloadInterceptor condition:
+
+```typescript
+  // Registered after ResponseInterceptor so it taps the raw payload.
+  // Flag-gated: response payloads may contain PII.
+  if (configService.get<boolean>('LOG_HTTP_BODIES')) {
+    app.useGlobalInterceptors(new DebugPayloadInterceptor());
+  }
+```
+
+Wrap the Swagger block (DocumentBuilder through `SwaggerModule.setup`,
+lines unchanged inside) in:
+
+```typescript
+  if (configService.get<boolean>('SWAGGER_ENABLED')) {
+    // ...existing DocumentBuilder + SwaggerModule.setup lines...
+  }
+```
+
+- [ ] **Step 6: Scripts + gitignore**
+
+`package.json` — change both test-DB scripts' `-e` path (inline node
+script stays byte-identical):
+
+```
+"db:migrate:test": "dotenv -e env/.env.test -- drizzle-kit migrate",
+"db:create:test": "dotenv -e env/.env.test -- node -e \"...unchanged...\"",
+```
+
+`.gitignore` — in the dotenv block, add:
 
 ```
 env/.env.*.local
 ```
 
-- [ ] **Step 4: Verify**
+- [ ] **Step 7: Verify**
 
 Run: `pnpm test`, `pnpm lint`, `pnpm build` — green.
-Then a boot smoke proving stage selection (uses the real local `.env`
-for secrets; PORT comes from the stage file unless `.env` overrides it —
-temporarily ensure `.env` has no PORT line for this check, or accept
-that `.env`'s PORT wins and assert on NODE_ENV-driven log format
-instead):
+
+Boot smokes (the machine's real `.env` may override PORT/DATABASE_URL —
+assert on log format, not port):
 
 ```bash
-APP_ENV=staging timeout 15 pnpm start:dev 2>&1 | head -30
-```
-
-Expected: app boots; because staging sets `NODE_ENV=production`, the log
-output is JSON (no pino-pretty) — that alone proves the staging file
-loaded. Confirm also that plain `pnpm start:dev` (no APP_ENV) still
-boots with pretty dev logs.
-
-Then confirm git sees the right things:
-
-```bash
-git status --short   # env/ files staged as new; no .env.*.local anywhere
+timeout 15 pnpm start:dev 2>&1 | head -20                   # local: pretty lines
+APP_ENV=staging timeout 15 pnpm start:dev 2>&1 | head -20   # staging: raw JSON lines
 git check-ignore -v env/.env.staging.local && echo ignored-ok
+git status --short   # six env/ files added, .env.test deleted
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add env .gitignore src/app.module.ts
-git commit -m "feat: per-stage env directory selected by APP_ENV"
+git add env .gitignore src/config/logger.config.ts src/app.module.ts src/main.ts package.json
+git rm --cached .env.test 2>/dev/null || true
+git commit -m "feat: committed per-stage env files, flag-driven behavior, extracted logger config"
 ```
 
 ---
 
-### Task 3: Docker, .env.example, docs
+### Task 3: Docker, docs, live verification
 
 **Files:**
-- Modify: `docker-compose.yml`
-- Modify: `Dockerfile`
+- Modify: `docker-compose.yml`, `Dockerfile`
 - Modify: `.env.example`
 - Modify: `README.md`, `CLAUDE.md`
 
 **Interfaces:**
-- Consumes: the `env/` directory and `APP_ENV` semantics from Tasks 1–2.
+- Consumes: `env/` directory and flags from Tasks 1–2.
 
 - [ ] **Step 1: Docker**
 
-`docker-compose.yml`, api service environment — add one line beside
-`NODE_ENV: production`:
+`docker-compose.yml` api service environment — add beside `NODE_ENV: production`:
 
 ```yaml
       APP_ENV: production
 ```
 
-`Dockerfile`, runtime stage — after `ENV NODE_ENV=production` add:
+`Dockerfile` runtime stage — after `ENV NODE_ENV=production`:
 
 ```dockerfile
 ENV APP_ENV=production
 ```
 
-and after the `COPY --from=build /app/dist ./dist` line add:
+and after `COPY --from=build /app/dist ./dist`:
 
 ```dockerfile
 COPY --from=build /app/env ./env
 ```
 
-(The build stage's `COPY . .` already includes `env/`; `.dockerignore`
-must not exclude it — check `.dockerignore` and, if it has a broad
-`.env*` pattern, ensure it does not match the `env/` directory; add an
-explicit `!env/` negation only if needed.)
+(`.dockerignore`'s `.env*` pattern matches root-level entries only, so
+the `env/` directory ships — the docker build in step 4 verifies.)
 
 - [ ] **Step 2: Rewrite `.env.example`**
 
 ```bash
 # ── Instance selection ─────────────────────────────────────────────
-# APP_ENV names the instance and picks which env/.env.<stage> file
-# loads: dev | staging | beta | production   (default: dev)
+# APP_ENV picks which committed env/.env.<stage> file loads:
+#   local | test | dev | staging | beta | production   (default: local)
 # NODE_ENV is set BY the stage file — don't set it by hand.
 # Precedence (first wins): injected process env > .env (this file's
 # gitignored sibling) > env/.env.<stage>.local > env/.env.<stage>
-# > env/.env.defaults
-#APP_ENV=dev
+#APP_ENV=local
 
-# ── Secrets (required — keep in .env or inject; never commit) ──────
-DATABASE_URL=postgresql://nestjs:strongpassword@localhost:5432/nestjs_starter
-JWT_SECRET=change-me-strong-random-secret
-
-# ── Optional local overrides (stage files carry the defaults) ──────
+# ── Personal overrides (optional — stage files carry the values) ───
+# Put machine-specific secrets/overrides in .env; they beat stage files.
+#DATABASE_URL=postgresql://user:password@localhost:5432/nestjs_starter
+#JWT_SECRET=my-strong-local-secret
 #PORT=3000
+#LOG_LEVEL=debug
+#LOG_PRETTY=true
+#LOG_HTTP_BODIES=true
+#SWAGGER_ENABLED=true
 #CORS_ORIGINS=
-#JWT_ACCESS_EXPIRES_IN=300
-#JWT_REFRESH_EXPIRES_IN=604800
 #THROTTLE_TTL=60
 #THROTTLE_LIMIT=100
+#JWT_ACCESS_EXPIRES_IN=300
+#JWT_REFRESH_EXPIRES_IN=604800
 ```
 
 - [ ] **Step 3: Docs**
@@ -389,56 +657,112 @@ JWT_SECRET=change-me-strong-random-secret
 ```markdown
 ## Environments
 
-The app runs as one of four instances selected by `APP_ENV`
-(`dev` | `staging` | `beta` | `production`, default `dev`). Per-stage
-non-secret config lives in the committed `env/` directory — one place to
-see and diff every instance:
+The app runs as one of six instances selected by `APP_ENV`
+(`local` | `test` | `dev` | `staging` | `beta` | `production`, default
+`local`). Each instance's config lives in the committed `env/` directory
+— one place to see and diff every instance. Behavior is driven by
+explicit flags in those files, never by env-name checks:
 
-- `env/.env.defaults` — shared baseline
-- `env/.env.<stage>` — stage values; each sets the right `NODE_ENV`
-  (staging/beta/production run with `NODE_ENV=production`)
-- `.env` (gitignored) — your machine's secrets (`DATABASE_URL`,
-  `JWT_SECRET`) and personal overrides
-- `env/.env.<stage>.local` (gitignored) — optional per-stage local
-  overrides
+| flag | does |
+|---|---|
+| `LOG_LEVEL` | pino level (defaults: `info` in production, else `debug`) |
+| `LOG_PRETTY` | human-readable one-line logs (pino-pretty) |
+| `LOG_HTTP_BODIES` | request bodies + response payloads in logs (redacted) |
+| `SWAGGER_ENABLED` | serve Swagger UI at `/api` |
 
-Precedence, first wins: injected process env → `.env` →
-`env/.env.<stage>.local` → `env/.env.<stage>` → `env/.env.defaults`.
-Real deployments inject secrets as process env (see docker-compose.yml);
-committed files never contain secrets.
+Precedence, first wins: injected process env → `.env` (gitignored
+personal overrides) → `env/.env.<stage>.local` (gitignored) →
+`env/.env.<stage>` (committed). Real deployments can inject secrets as
+process env — injected values always beat the files.
 
 Run a stage locally:
 
 ```bash
 APP_ENV=staging pnpm start:dev
 ```
+
+Jest/e2e always resolve to the `test` instance (`env/.env.test`).
 ```
 
-`CLAUDE.md` — in the paragraph about `.env`/validation (the one
-starting "Requires a `.env` ..."), append:
+Also update any README mention of `.env.test` (e2e prerequisites) to
+`env/.env.test`.
+
+`CLAUDE.md` — replace the paragraph starting "Requires a `.env` ..."
+with:
 
 ```markdown
-`APP_ENV` (`dev|staging|beta|production`, default `dev`) selects the
+Config is zod-validated at boot (`src/config/env.validation.ts`,
+`validateEnv`) — `DATABASE_URL`, `JWT_SECRET`, `THROTTLE_TTL`, and
+`THROTTLE_LIMIT` are required; everything else has schema defaults; the
+app fails fast with a descriptive error. `APP_ENV`
+(`local|test|dev|staging|beta|production`, default `local`) selects the
 instance: `ConfigModule` loads, in precedence order, process env →
-`.env` → `env/.env.<APP_ENV>.local` → `env/.env.<APP_ENV>` →
-`env/.env.defaults` (`src/config/env-files.ts`). Committed `env/` files
-hold non-secret per-stage values and set `NODE_ENV`; secrets stay in the
-gitignored `.env` or injected vars. `NODE_ENV=test` keeps the stage-less
-`['.env.test', '.env']` path.
+`.env` → `env/.env.<APP_ENV>.local` → `env/.env.<APP_ENV>`
+(`src/config/env-files.ts`). The committed `env/` files each set
+`NODE_ENV` and the behavior flags (`LOG_LEVEL`, `LOG_PRETTY`,
+`LOG_HTTP_BODIES`, `SWAGGER_ENABLED`) — app code reads flags, never
+`NODE_ENV` names, for feature decisions; pino options live in
+`src/config/logger.config.ts`. `NODE_ENV=test` (Jest) always resolves to
+the `test` instance. Token lifetimes are in **seconds**.
+`drizzle.config.ts` uses dotenv directly rather than Nest's ConfigModule.
 ```
 
-- [ ] **Step 4: Verify + commit**
+Also update the CLAUDE.md test-command comment that references
+`.env.test` (`db:create:test`/`db:migrate:test` read `env/.env.test`).
 
-Run: `pnpm test && pnpm lint && pnpm build` — green.
-Docker sanity (config render only, no build):
+- [ ] **Step 4: Live verification**
+
+Compose postgres (host port 5433 — local postgres owns 5432; docker via
+`sg docker -c`; JWT_SECRET needed for compose interpolation):
 
 ```bash
-JWT_SECRET=x sg docker -c "docker compose config" | grep -A2 APP_ENV
+cat > /tmp/compose-port-override.yml <<'EOF'
+services:
+  postgres:
+    ports: !override
+      - '5433:5432'
+EOF
+JWT_SECRET=x sg docker -c "docker compose -f docker-compose.yml -f /tmp/compose-port-override.yml up -d postgres"
+sleep 5
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/nestjs_starter_test pnpm db:create:test
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/nestjs_starter_test pnpm db:migrate:test
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/nestjs_starter_test pnpm test:e2e
 ```
 
-Expected: `APP_ENV: production` on the api service.
+Expected: e2e 15/15 with `test/app.e2e-spec.ts` unedited (proves the
+`env/.env.test` cascade + injected-var precedence).
+
+Swagger/pretty flag proof:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/nestjs_starter_test JWT_SECRET=x PORT=3996 APP_ENV=staging timeout 20 pnpm start:dev > /tmp/stage.log 2>&1 &
+sleep 13
+curl -s -o /dev/null -w 'staging swagger: %{http_code}\n' http://localhost:3996/api
+curl -s -o /dev/null -w 'staging health: %{http_code}\n' http://localhost:3996/health
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/nestjs_starter_test JWT_SECRET=x PORT=3995 SWAGGER_ENABLED=false APP_ENV=staging timeout 20 pnpm start:dev > /tmp/stage2.log 2>&1 &
+sleep 13
+curl -s -o /dev/null -w 'flag-off swagger: %{http_code}\n' http://localhost:3995/api
+pkill -f "nest start"; JWT_SECRET=x sg docker -c "docker compose -f docker-compose.yml -f /tmp/compose-port-override.yml down"
+```
+
+Expected: staging swagger 200 (stage file turns it on), health 200,
+flag-off swagger 404 (injected `SWAGGER_ENABLED=false` wins), and
+`/tmp/stage.log` shows raw JSON (non-pretty) lines.
+
+Docker image sanity:
+
+```bash
+sg docker -c "docker build -t nestjs-starter:envcheck ."
+sg docker -c "docker run --rm --entrypoint ls nestjs-starter:envcheck env"
+```
+
+Expected: build succeeds; `ls env` lists the six stage files.
+
+- [ ] **Step 5: Full suite + commit**
+
+Run: `pnpm test && pnpm lint && pnpm build` — green.
 
 ```bash
 git add docker-compose.yml Dockerfile .env.example README.md CLAUDE.md
-git commit -m "docs: document APP_ENV instances; wire docker stage selection"
+git commit -m "docs: document APP_ENV instances; ship env directory in docker image"
 ```
