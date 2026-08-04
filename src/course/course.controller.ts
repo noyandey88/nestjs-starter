@@ -1,122 +1,106 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
-  HttpCode,
-  HttpStatus,
-  UseGuards,
-  Request,
   ForbiddenException,
+  Get,
+  HttpStatus,
+  Param,
   ParseIntPipe,
+  Patch,
+  Post,
 } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CourseService } from './course.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ResponseBuilder } from 'src/common/dto/api-response.dto';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { CourseResponseDto } from './dto/course-response.dto';
 import { UserRole } from 'src/user/user.types';
+import type { JwtPayload } from 'src/auth/auth.types';
+import { ApiEnvelope } from 'src/common/decorators/api-envelope.decorator';
+import { ApiErrorResponses } from 'src/common/decorators/api-error-responses.decorator';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @ApiTags('Courses')
+@Auth()
 @Controller('courses')
 export class CourseController {
   constructor(private readonly courseService: CourseService) {}
 
-  @ApiBody({ type: CreateCourseDto })
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard)
   @Post('create')
   @ApiOperation({
     summary: 'Create a new course',
     description: 'Creates a new course using the provided details.',
   })
+  @ApiEnvelope(CourseResponseDto, { message: 'Course created successfully' })
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.CONFLICT)
   async create(
     @Body() createCourseDto: CreateCourseDto,
-    @Request() req: { user: { email: string } },
+    @CurrentUser('email') creatorEmail: string,
   ) {
-    const creatorEmail = req.user.email || 'anonymous';
-    const result = await this.courseService.create(
-      createCourseDto,
-      creatorEmail,
-    );
-    return ResponseBuilder.success(result, 'Course created successfully');
+    return this.courseService.create(createCourseDto, creatorEmail);
   }
 
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard)
   @Get('get/all')
   @ApiOperation({
     summary: 'Retrieve all courses',
     description: 'Fetches a list of all available courses.',
   })
+  @ApiEnvelope(CourseResponseDto, {
+    message: 'Courses retrieved successfully',
+    isArray: true,
+  })
   async findAll() {
-    const result = await this.courseService.findAll();
-    return ResponseBuilder.success(result, 'Courses retrieved successfully');
+    return this.courseService.findAll();
   }
 
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard)
   @Get('get/:id')
   @ApiOperation({
     summary: 'Retrieve a course by ID',
     description: 'Fetches a course by its unique identifier.',
   })
+  @ApiEnvelope(CourseResponseDto, { message: 'Course retrieved successfully' })
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND)
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    const result = await this.courseService.findOne(id);
-    return ResponseBuilder.success(result, 'Course retrieved successfully');
+    return this.courseService.findOne(id);
   }
 
-  @ApiBody({ type: UpdateCourseDto })
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard)
   @Patch('update/:id')
   @ApiOperation({
     summary: 'Update a course',
     description: 'Updates the details of an existing course.',
   })
+  @ApiEnvelope(CourseResponseDto, { message: 'Course updated successfully' })
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCourseDto: UpdateCourseDto,
-    @Request() req: { user: { email: string } },
+    @CurrentUser('email') updaterEmail: string,
   ) {
-    const updaterEmail = req.user.email || 'anonymous';
-    const result = await this.courseService.update(
-      id,
-      updateCourseDto,
-      updaterEmail,
-    );
-    return ResponseBuilder.success(result, 'Course updated successfully');
+    return this.courseService.update(id, updateCourseDto, updaterEmail);
   }
 
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard)
   @Delete('delete/:id')
   @ApiOperation({
     summary: 'Remove a course',
     description: 'Deletes an existing course by its unique identifier.',
   })
+  @ApiEnvelope(CourseResponseDto, { message: 'Course removed successfully' })
+  @ApiErrorResponses(
+    HttpStatus.BAD_REQUEST,
+    HttpStatus.FORBIDDEN,
+    HttpStatus.NOT_FOUND,
+  )
   async remove(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { role: UserRole } },
+    @CurrentUser() user: JwtPayload,
   ) {
-    const role = req.user.role;
-
-    if (role !== UserRole.Admin) {
+    if ((user.role as UserRole) !== UserRole.Admin) {
       throw new ForbiddenException(
         'You do not have permission to delete this course',
       );
     }
-
-    const result = await this.courseService.remove(id);
-    return ResponseBuilder.success(result, 'Course removed successfully');
+    return this.courseService.remove(id);
   }
 }

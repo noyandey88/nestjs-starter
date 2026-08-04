@@ -1,40 +1,26 @@
-import {
-  BadRequestException,
-  Controller,
-  Get,
-  HttpStatus,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpStatus } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserService } from './user.service';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from 'src/auth/auth.guard';
-import { ResponseBuilder } from 'src/common/dto/api-response.dto';
+import { UserResponseDto } from './dto/user-response.dto';
+import { ApiEnvelope } from 'src/common/decorators/api-envelope.decorator';
+import { ApiErrorResponses } from 'src/common/decorators/api-error-responses.decorator';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @ApiTags('Users')
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard)
+  @Auth()
   @Get('me')
   @ApiOperation({
     summary: 'current user',
     description: 'you can get currently logged in user data',
   })
-  async getUserProfile(@Request() req: { user: { sub: number } }) {
-    const userId = req.user.sub;
-
-    if (!userId) {
-      throw new BadRequestException('User id is missing');
-    }
-
-    const result = await this.userService.findUserById(userId);
-    return ResponseBuilder.success(
-      result,
-      'Data loaded successfully',
-      HttpStatus.OK,
-    );
+  @ApiEnvelope(UserResponseDto, { message: 'Data loaded successfully' })
+  @ApiErrorResponses(HttpStatus.NOT_FOUND)
+  async getUserProfile(@CurrentUser('sub') userId: number) {
+    return this.userService.findUserById(userId);
   }
 }

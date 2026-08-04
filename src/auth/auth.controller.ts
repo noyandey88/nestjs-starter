@@ -1,127 +1,73 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, HttpStatus, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshTokenDto, RegisterDto } from './dto/registerUser.dto';
 import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
-import { ResponseBuilder } from 'src/common/dto/api-response.dto';
-import { AuthGuard } from './auth.guard';
-import { UserService } from 'src/user/user.service';
+  AccessTokenResponseDto,
+  LoginResponseDto,
+} from './dto/auth-response.dto';
+import { UserResponseDto } from 'src/user/dto/user-response.dto';
+import { ApiEnvelope } from 'src/common/decorators/api-envelope.decorator';
+import { ApiErrorResponses } from 'src/common/decorators/api-error-responses.decorator';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
+@ApiTags('Auth')
+@Throttle({ default: { limit: 10, ttl: 60_000 } })
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly userService: UserService,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @ApiBody({ type: RegisterDto })
-  @HttpCode(HttpStatus.OK)
   @Post('register')
   @ApiOperation({
     summary: 'Register a new user',
     description:
       'Creates a new user account using the provided first name, last name, email, and password.',
   })
-  @ApiResponse({
-    status: 201,
-    description: 'User registered successfully.',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Email already in use.',
-  })
+  @ApiEnvelope(UserResponseDto, { message: 'User registered successfully' })
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.CONFLICT)
   async register(@Body() registerUserDto: RegisterDto) {
-    const result = await this.authService.registerUser(registerUserDto);
-    return ResponseBuilder.success(
-      result,
-      'User registered successfully',
-      HttpStatus.OK,
-    );
+    return this.authService.registerUser(registerUserDto);
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @ApiBody({ type: LoginDto })
-  @HttpCode(HttpStatus.OK)
   @Post('login')
   @ApiOperation({
     summary: 'user login',
     description: 'Login to your account with your credentials',
   })
+  @ApiEnvelope(LoginResponseDto, { message: 'User logged in successful' })
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND)
   async login(@Body() loginUserDto: LoginDto) {
-    const result = await this.authService.loginUser(loginUserDto);
-    return ResponseBuilder.success(
-      result,
-      'User logged in successful',
-      HttpStatus.OK,
-    );
+    return this.authService.loginUser(loginUserDto);
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard)
-  @HttpCode(HttpStatus.OK)
+  @Auth()
   @Post('access-token/refresh')
   @ApiOperation({
     summary: 'Refresh access token',
     description: 'Refresh the access token using a valid refresh token',
   })
+  @ApiEnvelope(AccessTokenResponseDto, { message: 'Data loaded successfully' })
   async refreshAccessToken(
     @Body() refreshToken: RefreshTokenDto,
-    @Request() req: { user: { sub: number } },
+    @CurrentUser('sub') userId: number,
   ) {
-    const userId = req.user.sub;
-
-    if (!userId) {
-      throw new BadRequestException('User id is missing');
-    }
-
-    const result = await this.authService.refreshAccessToken(
+    return this.authService.refreshAccessToken(
       userId,
       refreshToken.refreshToken,
     );
-    return ResponseBuilder.success(
-      result,
-      'Data loaded successfully',
-      HttpStatus.OK,
-    );
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @ApiBearerAuth('access-token')
-  @UseGuards(AuthGuard)
-  @HttpCode(HttpStatus.OK)
+  @Auth()
   @Post('logout')
   @ApiOperation({
     summary: 'Logout everywhere',
     description: 'Revokes all refresh tokens for the current user',
   })
-  async logout(@Request() req: { user: { sub: number } }) {
-    const userId = req.user.sub;
-
-    if (!userId) {
-      throw new BadRequestException('User id is missing');
-    }
-
+  @ApiEnvelope(null, { message: 'Logged out successfully' })
+  async logout(@CurrentUser('sub') userId: number) {
     await this.authService.logout(userId);
-    return ResponseBuilder.success(
-      null,
-      'Logged out successfully',
-      HttpStatus.OK,
-    );
+    return null;
   }
 }

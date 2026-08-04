@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { UserService } from 'src/user/user.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -18,10 +17,6 @@ describe('AuthController', () => {
             registerUser: jest.fn(),
             logout: jest.fn(),
           },
-        },
-        {
-          provide: UserService,
-          useValue: {},
         },
         {
           provide: JwtService,
@@ -41,7 +36,7 @@ describe('AuthController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('should register a user successfully and return formatted response', async () => {
+  it('returns the registered user payload raw (interceptor wraps it)', async () => {
     const mockUser = {
       id: 1,
       email: 'test@example.com',
@@ -58,26 +53,16 @@ describe('AuthController', () => {
     };
     const response = await controller.register(dto);
 
-    expect(response).toEqual({
-      success: true,
-      status: 'OK',
-      message: 'User registered successfully',
-      payload: mockUser,
-    });
+    expect(response).toEqual(mockUser);
   });
 
-  it('should logout the user and return formatted response', async () => {
+  it('revokes tokens for the current user and returns null', async () => {
     jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
 
-    const response = await controller.logout({ user: { sub: 1 } });
+    const response = await controller.logout(1);
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(authService.logout).toHaveBeenCalledWith(1);
-    expect(response).toEqual({
-      success: true,
-      status: 'OK',
-      message: 'Logged out successfully',
-      payload: null,
-    });
+    expect(response).toBeNull();
   });
 });
