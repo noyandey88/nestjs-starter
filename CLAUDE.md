@@ -43,7 +43,7 @@ instance: `ConfigModule` loads, in precedence order, process env →
 `NODE_ENV` names, for feature decisions; pino options live in
 `src/config/logger.config.ts`. `NODE_ENV=test` (Jest) always resolves to
 the `test` instance. Token lifetimes are in **seconds**.
-`drizzle.config.ts` uses dotenv directly rather than Nest's ConfigModule.
+`drizzle.config.ts` loads the same `resolveEnvFiles` cascade as the app (`src/config/env-files.ts`) via `dotenv`, rather than Nest's ConfigModule — the drizzle CLI honors `APP_ENV` too.
 
 ## Architecture
 

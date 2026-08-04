@@ -18,7 +18,7 @@ Production-ready NestJS 11 starter template with Drizzle ORM (PostgreSQL), JWT a
 
 ```bash
 pnpm install
-cp .env.example .env          # set JWT_SECRET (and DATABASE_URL if not using compose)
+cp .env.example .env          # optional: personal overrides only — env/.env.local already has working compose defaults
 docker compose up -d postgres
 pnpm db:migrate
 pnpm start:dev                # http://localhost:3000, Swagger at /api
@@ -70,6 +70,9 @@ APP_ENV=staging pnpm start:dev
 ```
 
 Jest/e2e always resolve to the `test` instance (`env/.env.test`).
+
+Drizzle commands (`db:generate`, `db:migrate`, `db:push`, `db:studio`) load the
+same cascade, so they honor `APP_ENV` too, e.g. `APP_ENV=staging pnpm db:migrate`.
 
 ## Project structure
 

@@ -10,11 +10,12 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
 /**
- * Development-only: logs each response payload at debug level so the
- * full request/response cycle is visible while debugging. Registered in
- * main.ts only when NODE_ENV === 'development' — never in production
- * (payloads may contain PII). Token fields are redacted by the pino
- * config in app.module.ts.
+ * Logs each response payload at debug level so the full request/response
+ * cycle is visible while debugging. Registered in main.ts only when the
+ * `LOG_HTTP_BODIES` flag is true — any stage may enable it, not just
+ * development. Payloads may contain PII, so keep the flag off wherever
+ * that matters. Token/secret fields are redacted per the pino config in
+ * src/config/logger.config.ts.
  */
 @Injectable()
 export class DebugPayloadInterceptor implements NestInterceptor {
