@@ -6,6 +6,7 @@ import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { DebugPayloadInterceptor } from './common/interceptors/debug-payload.interceptor';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
@@ -31,6 +32,11 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new ResponseInterceptor());
+  // Registered after ResponseInterceptor so it taps the raw payload.
+  // Dev only: response payloads may contain PII.
+  if (configService.get<string>('NODE_ENV') === 'development') {
+    app.useGlobalInterceptors(new DebugPayloadInterceptor());
+  }
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const config = new DocumentBuilder()
