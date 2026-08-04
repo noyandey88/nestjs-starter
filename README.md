@@ -38,6 +38,34 @@ pnpm start:dev                # http://localhost:3000, Swagger at /api
 | `THROTTLE_TTL` | no | `60` | Rate-limit window (seconds) |
 | `THROTTLE_LIMIT` | no | `100` | Max requests per window |
 
+## Environments
+
+The app runs as one of six instances selected by `APP_ENV`
+(`local` | `test` | `dev` | `staging` | `beta` | `production`, default
+`local`). Each instance's config lives in the committed `env/` directory
+— one place to see and diff every instance. Behavior is driven by
+explicit flags in those files, never by env-name checks:
+
+| flag | does |
+|---|---|
+| `LOG_LEVEL` | pino level (defaults: `info` in production, else `debug`) |
+| `LOG_PRETTY` | human-readable one-line logs (pino-pretty) |
+| `LOG_HTTP_BODIES` | request bodies + response payloads in logs (redacted) |
+| `SWAGGER_ENABLED` | serve Swagger UI at `/api` |
+
+Precedence, first wins: injected process env → `.env` (gitignored
+personal overrides) → `env/.env.<stage>.local` (gitignored) →
+`env/.env.<stage>` (committed). Real deployments can inject secrets as
+process env — injected values always beat the files.
+
+Run a stage locally:
+
+```bash
+APP_ENV=staging pnpm start:dev
+```
+
+Jest/e2e always resolve to the `test` instance (`env/.env.test`).
+
 ## Project structure
 
 ```

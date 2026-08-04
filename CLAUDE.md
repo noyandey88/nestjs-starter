@@ -23,14 +23,27 @@ pnpm db:migrate         # apply migrations
 pnpm db:push            # push schema directly (no migration file)
 pnpm db:studio          # Drizzle Studio UI
 
-pnpm db:create:test     # create the test database (reads .env.test)
-pnpm db:migrate:test    # apply migrations to the test database (reads .env.test)
+pnpm db:create:test     # create the test database (reads env/.env.test)
+pnpm db:migrate:test    # apply migrations to the test database (reads env/.env.test)
 pnpm test:e2e           # e2e tests (test/jest-e2e.json) — requires:
                         #   docker compose up -d postgres
                         #   pnpm db:create:test && pnpm db:migrate:test
 ```
 
-Requires a `.env` with `DATABASE_URL` and `JWT_SECRET`. Env vars are validated at boot by `src/config/env.validation.ts` (`ConfigModule.forRoot({ validate: validateEnv })` in `app.module.ts`) — `DATABASE_URL` and `JWT_SECRET` are required, everything else has a default; the app fails fast with a descriptive error if validation fails. `JWT_ACCESS_EXPIRES_IN` and `JWT_REFRESH_EXPIRES_IN` are in **seconds** (defaults `300` / `604800`). `drizzle.config.ts` uses dotenv directly rather than Nest's ConfigModule.
+Config is zod-validated at boot (`src/config/env.validation.ts`,
+`validateEnv`) — `DATABASE_URL`, `JWT_SECRET`, `THROTTLE_TTL`, and
+`THROTTLE_LIMIT` are required; everything else has schema defaults; the
+app fails fast with a descriptive error. `APP_ENV`
+(`local|test|dev|staging|beta|production`, default `local`) selects the
+instance: `ConfigModule` loads, in precedence order, process env →
+`.env` → `env/.env.<APP_ENV>.local` → `env/.env.<APP_ENV>`
+(`src/config/env-files.ts`). The committed `env/` files each set
+`NODE_ENV` and the behavior flags (`LOG_LEVEL`, `LOG_PRETTY`,
+`LOG_HTTP_BODIES`, `SWAGGER_ENABLED`) — app code reads flags, never
+`NODE_ENV` names, for feature decisions; pino options live in
+`src/config/logger.config.ts`. `NODE_ENV=test` (Jest) always resolves to
+the `test` instance. Token lifetimes are in **seconds**.
+`drizzle.config.ts` uses dotenv directly rather than Nest's ConfigModule.
 
 ## Architecture
 
