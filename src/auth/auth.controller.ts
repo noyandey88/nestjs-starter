@@ -74,6 +74,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
   @Post('access-token/refresh')
   @ApiOperation({
     summary: 'Refresh access token',

@@ -43,6 +43,13 @@
       "when": 1785598086417,
       "tag": "0005_romantic_sebastian_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785828018742,
+      "tag": "0006_public_stardust",
+      "breakpoints": true
     }
   ]
 }

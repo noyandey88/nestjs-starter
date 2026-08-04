@@ -156,18 +156,25 @@ describe('API flow (e2e)', () => {
       .expect(401);
   });
 
-  it('POST /auth/logout revokes all refresh tokens', async () => {
+  it('POST /auth/logout revokes even a freshly issued refresh token', async () => {
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password })
+      .expect(200);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const freshAccessToken: string = login.body.payload.accessToken;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const freshRefreshToken: string = login.body.payload.refreshToken;
+
     await request(app.getHttpServer())
       .post('/auth/logout')
-      .set('Authorization', `Bearer ${accessToken}`)
+      .set('Authorization', `Bearer ${freshAccessToken}`)
       .expect(200);
-  });
 
-  it('POST /auth/access-token/refresh fails with 401 after logout', async () => {
     await request(app.getHttpServer())
       .post('/auth/access-token/refresh')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ refreshToken })
+      .set('Authorization', `Bearer ${freshAccessToken}`)
+      .send({ refreshToken: freshRefreshToken })
       .expect(401);
   });
 });
