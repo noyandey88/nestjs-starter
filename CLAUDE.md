@@ -47,7 +47,7 @@ Standard NestJS module-per-feature layout (`auth`, `user`, `course`, `health`), 
 ### Auth
 
 - `AuthModule` registers `JwtModule` as **global** via `registerAsync`, reading `JWT_SECRET` and `JWT_ACCESS_EXPIRES_IN` (seconds) from `ConfigService`; refresh tokens are persisted via `auth/refresh-token.repository.ts` (`refresh_tokens` table) and their lifetime is `JWT_REFRESH_EXPIRES_IN` (seconds).
-- Protect routes with `@UseGuards(AuthGuard)` (`src/auth/auth.guard.ts`) plus `@ApiBearerAuth('access-token')` for Swagger — the bearer scheme name `access-token` is registered in `main.ts`. The guard verifies the Bearer token and assigns the JWT payload to `request.user` (user id is in `req.user.sub`).
+- Protect routes with `@Auth()` (`src/common/decorators/auth.decorator.ts`), which bundles `AuthGuard`, the `access-token` Swagger bearer scheme, and the documented 401; the guard puts the JWT payload on `request.user`, accessed via `@CurrentUser()`.
 
 ### Health, rate limiting, logging
 
@@ -57,7 +57,15 @@ Standard NestJS module-per-feature layout (`auth`, `user`, `course`, `health`), 
 
 ### Response envelope (cross-cutting)
 
-`main.ts` wires three global pieces: a `ValidationPipe` (`whitelist` + `transform`, so DTOs use class-validator decorators and unknown fields are stripped), `ResponseInterceptor`, and `AllExceptionsFilter`. Every response — success or error — is normalized to the `ApiResponse` shape `{ success, status, message, payload }` (`src/common/`). Controllers typically return `ResponseBuilder.success(data, message, HttpStatus.X)` from `src/common/dto/api-response.dto.ts`; the interceptor passes that envelope through (converting numeric status to its name) and wraps any raw return value automatically.
+`main.ts` wires three global pieces: a `ValidationPipe` (`whitelist` + `transform`, so DTOs use class-validator decorators and unknown fields are stripped), `ResponseInterceptor`, and `AllExceptionsFilter`. Every response — success or error — is normalized to the `ApiResponse` shape `{ success, status, message, payload }` (`src/common/`). Controllers return the **raw payload** (usually the service result); the interceptor builds the envelope, deriving `status` from the response's HTTP status code and `message` from `@ApiEnvelope` route metadata.
+
+Per-route contract lives in composed decorators (`src/common/decorators/`):
+- `@ApiEnvelope(PayloadDto, { message })` — sets the HTTP code (default 200), the envelope message, and the Swagger success schema (envelope + payload DTO). Use `null` for null payloads, `isArray: true` for lists.
+- `@Auth()` — `AuthGuard` + Swagger bearer (`access-token`) + documented 401. Class-level when every route is protected.
+- `@ApiErrorResponses(HttpStatus.X, ...)` — documents error codes with the `ErrorResponseDto` shape emitted by `AllExceptionsFilter`.
+- `@CurrentUser('sub' | 'email' | 'role')` — injects the verified JWT payload (or one field) from `request.user`.
+
+Do not add `@ApiBody` (inferred from `@Body()` types) or per-route `@HttpCode`/`@UseGuards`/`@ApiBearerAuth` — the decorators above own those.
 
 ### Conventions
 

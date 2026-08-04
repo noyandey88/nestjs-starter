@@ -58,7 +58,7 @@ Use `src/course/` as the reference. For a resource `book`:
 1. Define the table in `src/database/schema/book.schema.ts` and **re-export it from `src/database/schema/index.ts`** (required for the runtime query API, e.g. `db.query.books` — `database.provider.ts` builds the Drizzle instance from that barrel). Migrations don't need it: `drizzle.config.ts` points at `src/database/schema/*` directly, so drizzle-kit discovers new schema files via that glob regardless.
 2. `pnpm db:generate && pnpm db:migrate`
 3. Create `src/book/` with `book.module.ts`, `book.controller.ts`, `book.service.ts`, `book.repository.ts`, and `dto/`. Inject the db in the repository via `@Inject(DRIZZLE_ORM)`; derive row types with `InferSelectModel`.
-4. Guard routes with `@UseGuards(AuthGuard)` + `@ApiBearerAuth('access-token')`; return `ResponseBuilder.success(...)`.
+4. Guard routes with `@Auth()`; declare each route's success contract with `@ApiEnvelope(YourResponseDto, { message: '...' })` and error codes with `@ApiErrorResponses(...)`; return the raw service result — the global interceptor wraps it in the `{ success, status, message, payload }` envelope.
 5. Register the module in `AppModule`; add unit tests mirroring `course.service.spec.ts`.
 
 ## Testing
