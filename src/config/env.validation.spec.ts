@@ -1,44 +1,73 @@
-import { validateEnv } from './env.validation';
+import { validateEnv, APP_ENVS } from './env.validation';
 
-const validEnv = {
-  DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
-  JWT_SECRET: 'test-secret',
+const base = {
+  DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/db',
+  JWT_SECRET: 'secret',
+  THROTTLE_TTL: '60',
+  THROTTLE_LIMIT: '100',
 };
 
 describe('validateEnv', () => {
   it('accepts a minimal valid config and applies defaults', () => {
-    const result = validateEnv({ ...validEnv });
-    expect(result.DATABASE_URL).toBe(validEnv.DATABASE_URL);
-    expect(result.PORT).toBe(3000);
-    expect(result.NODE_ENV).toBe('development');
-    expect(result.JWT_ACCESS_EXPIRES_IN).toBe(300);
-    expect(result.JWT_REFRESH_EXPIRES_IN).toBe(604800);
-    expect(result.THROTTLE_TTL).toBe(60);
-    expect(result.THROTTLE_LIMIT).toBe(100);
-    expect(result.CORS_ORIGINS).toBe('');
+    const env = validateEnv(base);
+    expect(env.APP_ENV).toBe('local');
+    expect(env.NODE_ENV).toBe('development');
+    expect(env.PORT).toBe(3000);
+    expect(env.LOG_PRETTY).toBe(false);
+    expect(env.LOG_HTTP_BODIES).toBe(false);
+    expect(env.SWAGGER_ENABLED).toBe(false);
+    expect(env.JWT_ACCESS_EXPIRES_IN).toBe(300);
+    expect(env.JWT_REFRESH_EXPIRES_IN).toBe(604800);
+    expect(env.CORS_ORIGINS).toBe('');
   });
 
-  it('throws when DATABASE_URL is missing', () => {
-    expect(() => validateEnv({ JWT_SECRET: 'x' })).toThrow(/DATABASE_URL/);
+  it('accepts each known APP_ENV stage', () => {
+    for (const stage of APP_ENVS) {
+      expect(validateEnv({ ...base, APP_ENV: stage }).APP_ENV).toBe(stage);
+    }
   });
 
-  it('throws when JWT_SECRET is missing', () => {
-    expect(() => validateEnv({ DATABASE_URL: validEnv.DATABASE_URL })).toThrow(
-      /JWT_SECRET/,
+  it('rejects an unknown APP_ENV', () => {
+    expect(() => validateEnv({ ...base, APP_ENV: 'qa' })).toThrow(/APP_ENV/);
+  });
+
+  it('parses boolean flags from strings — including the "false" trap', () => {
+    expect(validateEnv({ ...base, LOG_PRETTY: 'true' }).LOG_PRETTY).toBe(true);
+    expect(validateEnv({ ...base, LOG_PRETTY: 'false' }).LOG_PRETTY).toBe(
+      false,
     );
   });
 
-  it('coerces numeric strings from the environment', () => {
-    const result = validateEnv({
-      ...validEnv,
-      PORT: '8080',
-      THROTTLE_LIMIT: '5',
-    });
-    expect(result.PORT).toBe(8080);
-    expect(result.THROTTLE_LIMIT).toBe(5);
+  it('rejects non true/false boolean flag values', () => {
+    expect(() => validateEnv({ ...base, SWAGGER_ENABLED: 'yes' })).toThrow(
+      /SWAGGER_ENABLED/,
+    );
   });
 
-  it('throws on non-numeric PORT', () => {
-    expect(() => validateEnv({ ...validEnv, PORT: 'abc' })).toThrow(/PORT/);
+  it('requires THROTTLE_TTL and THROTTLE_LIMIT', () => {
+    const { THROTTLE_TTL: _t, ...withoutTtl } = base;
+    expect(() => validateEnv(withoutTtl)).toThrow(/THROTTLE_TTL/);
+    const { THROTTLE_LIMIT: _l, ...withoutLimit } = base;
+    expect(() => validateEnv(withoutLimit)).toThrow(/THROTTLE_LIMIT/);
+  });
+
+  it('coerces numeric strings', () => {
+    const env = validateEnv({ ...base, PORT: '8080', THROTTLE_TTL: '30' });
+    expect(env.PORT).toBe(8080);
+    expect(env.THROTTLE_TTL).toBe(30);
+  });
+
+  it('rejects a non-URL DATABASE_URL', () => {
+    expect(() => validateEnv({ ...base, DATABASE_URL: 'not-a-url' })).toThrow(
+      /DATABASE_URL/,
+    );
+  });
+
+  it('enforces the LOG_LEVEL enum and leaves it optional', () => {
+    expect(validateEnv(base).LOG_LEVEL).toBeUndefined();
+    expect(validateEnv({ ...base, LOG_LEVEL: 'warn' }).LOG_LEVEL).toBe('warn');
+    expect(() => validateEnv({ ...base, LOG_LEVEL: 'loud' })).toThrow(
+      /LOG_LEVEL/,
+    );
   });
 });

@@ -33,28 +33,30 @@ async function bootstrap() {
   );
   app.useGlobalInterceptors(new ResponseInterceptor());
   // Registered after ResponseInterceptor so it taps the raw payload.
-  // Dev only: response payloads may contain PII.
-  if (configService.get<string>('NODE_ENV') === 'development') {
+  // Flag-gated: response payloads may contain PII.
+  if (configService.get<boolean>('LOG_HTTP_BODIES')) {
     app.useGlobalInterceptors(new DebugPayloadInterceptor());
   }
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  const config = new DocumentBuilder()
-    .setTitle('Nestjs LMS')
-    .setDescription('The LMS description')
-    .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        description: 'Enter your JWT access token',
-      },
-      'access-token',
-    )
-    .build();
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+  if (configService.get<boolean>('SWAGGER_ENABLED')) {
+    const config = new DocumentBuilder()
+      .setTitle('Nestjs LMS')
+      .setDescription('The LMS description')
+      .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Enter your JWT access token',
+        },
+        'access-token',
+      )
+      .build();
+    const documentFactory = () => SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, documentFactory);
+  }
 
   await app.listen(configService.get<number>('PORT')!);
 }

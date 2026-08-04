@@ -25,6 +25,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nestjs_starter
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in your shell or .env}
       NODE_ENV: production
+      APP_ENV: production
     ports:
       - '3000:3000'
 

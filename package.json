@@ -23,8 +23,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:migrate:test": "dotenv -e .env.test -- drizzle-kit migrate",
-    "db:create:test": "dotenv -e .env.test -- node -e \"const {Client}=require('pg');const u=new URL(process.env.DATABASE_URL);const db=u.pathname.slice(1);u.pathname='/postgres';const c=new Client({connectionString:u.toString()});c.connect().then(()=>c.query('CREATE DATABASE '+db)).catch(e=>{if(e.code!=='42P04')throw e}).finally(()=>c.end());\""
+    "db:migrate:test": "dotenv -e env/.env.test -- drizzle-kit migrate",
+    "db:create:test": "dotenv -e env/.env.test -- node -e \"const {Client}=require('pg');const u=new URL(process.env.DATABASE_URL);const db=u.pathname.slice(1);u.pathname='/postgres';const c=new Client({connectionString:u.toString()});c.connect().then(()=>c.query('CREATE DATABASE '+db)).catch(e=>{if(e.code!=='42P04')throw e}).finally(()=>c.end());\""
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -46,7 +46,8 @@
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

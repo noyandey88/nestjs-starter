@@ -1,121 +1,187 @@
-# Multi-Instance Environment Management — Design
+# Multi-Instance Environment Management — Design (v2)
 
-**Date:** 2026-08-04
+**Date:** 2026-08-04 (v2 — user-directed revision)
 **Status:** Approved
-**Base:** main (eb3ba8f)
+**Base:** main (97e3e9a)
 
 ## Problem
 
-The starter conflates two axes in one variable: `NODE_ENV` names both the
-runtime mode frameworks key off (`development|production|test`) and,
-implicitly, the deployment stage. There is no way to run distinct
-instances (dev, staging, beta, production) with per-instance config, and
-no single place to see or manage each instance's values.
+The starter conflates runtime mode and deployment stage in `NODE_ENV`,
+scatters behavior behind `NODE_ENV === 'development'` name-checks
+(pino-pretty, body logging, debug interceptor), and has no per-instance
+config. Swagger is always on. Env validation is class-validator, which
+is verbose for this job.
 
 ## Goal
 
-- Instances: **dev, staging, beta, production** (plus the existing `test`
-  runtime mode for Jest — a mode, not a stage).
-- One management surface: a committed `env/` directory holding per-stage
-  non-secret config, diffable in PRs.
-- Secrets never enter git; injected process env always wins, so Docker,
-  CI, and any PaaS keep working unchanged.
-- Everything remains validated through the single typed schema in
-  `src/config/env.validation.ts`.
+- Instances: **local, test, dev, staging, beta, production** selected by
+  `APP_ENV` (default `local`).
+- One management surface: a committed `env/` directory — one file per
+  instance, **pushed to GitHub with real values** (user manages/rotates
+  values; production-grade secrets can still be injected, and injected
+  process env always wins).
+- Behavior via explicit value flags, not env-name checks:
+  `LOG_LEVEL`, `LOG_PRETTY`, `LOG_HTTP_BODIES`, `SWAGGER_ENABLED`.
+- Env validation via **zod** (single typed schema, fail-fast boot).
+  class-validator remains for request DTOs.
 
 ## Design
 
-### 1. Two variables, two jobs
+### 1. Variables
 
-- **`APP_ENV`** (new): `dev | staging | beta | production`, default
-  `dev`. Names the instance; selects which stage file loads.
-- **`NODE_ENV`**: unchanged meaning (`development | production | test`) —
-  what frameworks/pino/Express key off. Each committed stage file sets
-  the correct `NODE_ENV` (`development` for dev; `production` for
-  staging, beta, production), so operators set only `APP_ENV` and the
-  runtime mode follows automatically. An explicitly injected `NODE_ENV`
-  still wins (process env precedence).
+- **`APP_ENV`**: `local | test | dev | staging | beta | production`,
+  default `local`. Names the instance; selects `env/.env.<APP_ENV>`.
+- **`NODE_ENV`**: unchanged meaning (`development | test | production`),
+  set inside each stage file. Frameworks keep keying off it; app code
+  stops using it for feature decisions.
+- **Flags** (all read from config, never inferred from env names):
+  - `LOG_LEVEL`: `trace|debug|info|warn|error|fatal`, optional — when
+    unset, falls back to `NODE_ENV === 'production' ? 'info' : 'debug'`.
+  - `LOG_PRETTY` (booleanString, default `false`): pino-pretty transport.
+  - `LOG_HTTP_BODIES` (booleanString, default `false`): trimmed dev
+    serializers with request bodies + the `DebugPayloadInterceptor`
+    response-payload logging.
+  - `SWAGGER_ENABLED` (booleanString, default `false`): gates
+    `SwaggerModule.setup` in `main.ts`.
 
-### 2. The `env/` directory (the "one place")
+### 2. Zod schema (`src/config/env.validation.ts` — full replacement)
+
+```ts
+import { z } from 'zod';
+
+export const APP_ENVS = ['local', 'test', 'dev', 'staging', 'beta', 'production'] as const;
+
+const booleanString = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((v) => v === 'true');
+// NB: z.coerce.boolean() is a trap — it coerces the *string* "false" to true.
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  APP_ENV: z.enum(APP_ENVS).default('local'),
+
+  PORT: z.coerce.number().int().positive().default(3000),
+
+  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).optional(),
+  LOG_PRETTY: booleanString,
+  LOG_HTTP_BODIES: booleanString,
+
+  SWAGGER_ENABLED: booleanString,
+
+  // Same code everywhere, different numbers per stage file (required).
+  THROTTLE_TTL: z.coerce.number().int().positive(),
+  THROTTLE_LIMIT: z.coerce.number().int().positive(),
+
+  DATABASE_URL: z.string().url(),
+  JWT_SECRET: z.string().min(1),
+  JWT_ACCESS_EXPIRES_IN: z.coerce.number().int().positive().default(300),
+  JWT_REFRESH_EXPIRES_IN: z.coerce.number().int().positive().default(604800),
+  CORS_ORIGINS: z.string().default(''),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+export function validateEnv(config: Record<string, unknown>): Env {
+  const result = envSchema.safeParse(config);
+  if (!result.success) {
+    throw new Error(
+      `Invalid environment configuration:\n${result.error.issues
+        .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+        .join('\n')}`,
+    );
+  }
+  return result.data;
+}
+```
+
+`ConfigModule.forRoot({ validate: validateEnv })` keeps working — the
+returned object becomes the config store, so transformed values
+(booleans, numbers) are what `ConfigService.get` returns. New runtime
+dependency: `zod`.
+
+### 3. The `env/` directory
 
 ```
 env/
-  .env.defaults      # values shared by all stages (committed)
-  .env.dev           # per-stage non-secret overrides (committed)
+  .env.local        # developer machine (default instance)
+  .env.test         # jest/e2e (replaces root .env.test)
+  .env.dev          # deployed dev instance
   .env.staging
   .env.beta
   .env.production
-.env                 # gitignored — machine-local secrets + overrides
-.env.test            # unchanged (Jest/e2e, local test values only)
+.env                # gitignored — optional personal overrides
 ```
 
-Committed stage files contain only non-secrets: `NODE_ENV`, `PORT`,
-`CORS_ORIGINS`, `THROTTLE_*`, `JWT_ACCESS_EXPIRES_IN`,
-`JWT_REFRESH_EXPIRES_IN`. Secrets (`DATABASE_URL`, `JWT_SECRET`) come
-from the gitignored `.env` locally or injected vars in real deployments.
-Committed files carry placeholder-free comments pointing at where secrets
-come from.
+All committed and pushed, **including values** (user's explicit call;
+they manage rotation). Each file sets `NODE_ENV`, `PORT`, the flags,
+`THROTTLE_*`, and `DATABASE_URL`/`JWT_SECRET` values appropriate to the
+stage. Production/staging/beta files carry obvious change-me secret
+values plus a comment that real deployments inject the true values
+(injected env always wins).
 
-### 3. Load order (first match wins)
+Flag matrix (initial values):
 
-`@nestjs/config` gives process env top precedence, then earlier
-`envFilePath` entries over later ones:
+| stage | NODE_ENV | LOG_PRETTY | LOG_HTTP_BODIES | SWAGGER_ENABLED |
+|---|---|---|---|---|
+| local | development | true | true | true |
+| test | test | false | false | false |
+| dev | development | false | true | true |
+| staging | production | false | false | true |
+| beta | production | false | false | true |
+| production | production | false | false | false |
 
-1. Injected process env (always wins — 12-factor)
-2. `.env` (local secrets/overrides)
-3. `env/.env.<APP_ENV>.local` (gitignored per-stage local overrides, optional)
-4. `env/.env.<APP_ENV>` (stage values)
-5. `env/.env.defaults` (shared baseline)
+### 4. Load order (first match wins)
 
-Test mode keeps its existing special case: when `NODE_ENV === 'test'`,
-`envFilePath` stays `['.env.test', '.env']` — Jest runs are stage-less.
+1. Injected process env (always wins)
+2. `.env` (gitignored personal overrides)
+3. `env/.env.<APP_ENV>.local` (gitignored escape hatch)
+4. `env/.env.<APP_ENV>` (committed stage file)
 
-`APP_ENV` is read via `process.env.APP_ENV ?? 'dev'` at module-definition
-time (before ConfigModule parses files), because it chooses which files
-to parse. A stage file therefore cannot set `APP_ENV` — by design.
+No shared defaults file — the zod schema's defaults are the baseline.
+Helper `resolveEnvFiles(env): string[]` in `src/config/env-files.ts`;
+test mode (`NODE_ENV === 'test'` or `APP_ENV === 'test'`) resolves the
+same cascade with stage `test`. Root `.env.test` is deleted; scripts
+that used it point at `env/.env.test`.
 
-### 4. Validation
+### 5. Consumers switch from name-checks to flags
 
-`EnvironmentVariables` gains:
-
-```ts
-export const APP_ENVS = ['dev', 'staging', 'beta', 'production'] as const;
-export type AppEnv = (typeof APP_ENVS)[number];
-
-@IsIn(APP_ENVS)
-@IsOptional()
-APP_ENV: AppEnv = 'dev';
-```
-
-Invalid `APP_ENV` fails boot with the existing descriptive error.
-
-### 5. Touchpoints
-
-- `docker-compose.yml` api service: add `APP_ENV: production` beside the
-  existing `NODE_ENV: production` (illustrates injected-var precedence).
-- `.env.example`: rewritten to document the two-variable model, the
-  `env/` directory, and which values are secret.
-- `README.md` + `CLAUDE.md`: new "Environments" section — how to run a
-  stage locally (`APP_ENV=staging pnpm start:dev`), where values live,
-  precedence order.
-- `.gitignore`: ensure `.env` stays ignored and `env/*.local` pattern is
-  ignored (escape hatch for uncommitted per-stage local overrides:
-  `env/.env.<stage>.local` loads between `.env` and the stage file).
+- **Logger config extracted** (user request: `app.module.ts` is
+  spaghetti): new `src/config/logger.config.ts` exports
+  `createLoggerOptions(config: ConfigService): Params` (nestjs-pino
+  `Params`), containing level =
+  `LOG_LEVEL ?? (NODE_ENV === 'production' ? 'info' : 'debug')`,
+  pino-pretty transport when `LOG_PRETTY`, trimmed body serializers when
+  `LOG_HTTP_BODIES`, redaction list unchanged (always on).
+  `app.module.ts`'s LoggerModule block shrinks to
+  `useFactory: createLoggerOptions`.
+- `main.ts`: register `DebugPayloadInterceptor` when `LOG_HTTP_BODIES`;
+  run `SwaggerModule.setup` only when `SWAGGER_ENABLED`.
+- `app.module.ts` envFilePath: `resolveEnvFiles(process.env)`.
+- `package.json`: `db:create:test` / `db:migrate:test` use
+  `dotenv -e env/.env.test`; `test:e2e` keeps `NODE_ENV=test`.
+- Docker compose api: add `APP_ENV: production`; Dockerfile: add
+  `ENV APP_ENV=production` and copy `env/` into the runtime image.
+- CI: injected vars still win; the e2e job keeps working because
+  `NODE_ENV=test` resolves to the committed `env/.env.test` plus the
+  job's injected `DATABASE_URL`/`JWT_SECRET`.
 
 ### 6. Out of scope
 
-- Secrets-manager integration (Doppler/Vault) — later add-on.
-- Per-stage infrastructure (separate databases, deploy pipelines).
-- Config namespaces/registerAs refactor — the flat validated schema
-  stays.
+- Secrets-manager integration; per-stage infrastructure.
+- Converting request-DTO validation to zod (class-validator stays).
 
 ## Testing
 
-- Unit tests for the envFilePath resolution helper (pure function
-  `resolveEnvFiles(appEnv, nodeEnv)` returning the ordered file list —
-  extracted so it's testable without booting Nest).
-- Unit test: `APP_ENV` validation accepts the four stages, rejects
-  garbage, defaults to `dev`.
-- Existing suite + live boot smoke per stage (`APP_ENV=staging`) showing
-  the right values loaded (non-secret, e.g. PORT differs per stage).
-- e2e unaffected (test mode path unchanged).
+- Unit: `resolveEnvFiles` (default local, explicit stage, test mode via
+  NODE_ENV and via APP_ENV, unknown stage passthrough).
+- Unit: zod `validateEnv` — defaults applied (`APP_ENV` local, `PORT`
+  3000, flags false); booleanString accepts 'true'/'false', rejects
+  'yes', and `"false"` parses to `false` (the coerce trap); `THROTTLE_*`
+  required; `DATABASE_URL` must be a URL; unknown `APP_ENV` rejected;
+  `LOG_LEVEL` enum enforced.
+- Existing suite green; `test/app.e2e-spec.ts` unedited and green
+  against `env/.env.test`.
+- Live smokes: default boot = pretty logs + swagger on;
+  `APP_ENV=staging` = JSON logs + swagger on;
+  `SWAGGER_ENABLED=false` injected = `/api` 404.

@@ -1,89 +1,62 @@
-import 'reflect-metadata';
-import { plainToInstance, Type } from 'class-transformer';
-import {
-  IsIn,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Min,
-  validateSync,
-} from 'class-validator';
+import { z } from 'zod';
 
-export const NODE_ENVS = ['development', 'production', 'test'] as const;
-export type NodeEnv = (typeof NODE_ENVS)[number];
+export const APP_ENVS = [
+  'local',
+  'test',
+  'dev',
+  'staging',
+  'beta',
+  'production',
+] as const;
+export type AppEnv = (typeof APP_ENVS)[number];
 
-export class EnvironmentVariables {
-  @IsString()
-  @IsNotEmpty()
-  DATABASE_URL!: string;
+const booleanString = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((v) => v === 'true');
+// NB: z.coerce.boolean() is a trap — it coerces the *string* "false" to true.
 
-  @IsString()
-  @IsNotEmpty()
-  JWT_SECRET!: string;
+const envSchema = z.object({
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
+  APP_ENV: z.enum(APP_ENVS).default('local'),
 
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  PORT: number = 3000;
+  PORT: z.coerce.number().int().positive().default(3000),
 
-  @IsIn(NODE_ENVS)
-  @IsOptional()
-  NODE_ENV: NodeEnv = 'development';
+  // Logging — values, not name-checks
+  LOG_LEVEL: z
+    .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'])
+    .optional(),
+  LOG_PRETTY: booleanString,
+  LOG_HTTP_BODIES: booleanString,
 
+  SWAGGER_ENABLED: booleanString,
+
+  // Same code everywhere, different numbers per stage file (required).
+  THROTTLE_TTL: z.coerce.number().int().positive(),
+  THROTTLE_LIMIT: z.coerce.number().int().positive(),
+
+  DATABASE_URL: z.url(),
+  JWT_SECRET: z.string().min(1),
   /** Access-token lifetime in seconds. */
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  JWT_ACCESS_EXPIRES_IN: number = 300;
-
+  JWT_ACCESS_EXPIRES_IN: z.coerce.number().int().positive().default(300),
   /** Refresh-token lifetime in seconds. */
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  JWT_REFRESH_EXPIRES_IN: number = 604800;
-
+  JWT_REFRESH_EXPIRES_IN: z.coerce.number().int().positive().default(604800),
   /** Comma-separated list of allowed origins. Empty disables CORS. */
-  @IsString()
-  @IsOptional()
-  CORS_ORIGINS: string = '';
+  CORS_ORIGINS: z.string().default(''),
+});
 
-  /** Rate-limit window in seconds. */
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  THROTTLE_TTL: number = 60;
+export type Env = z.infer<typeof envSchema>;
 
-  /** Max requests per window per client. */
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  THROTTLE_LIMIT: number = 100;
-}
-
-export function validateEnv(
-  config: Record<string, unknown>,
-): EnvironmentVariables {
-  const validated = plainToInstance(EnvironmentVariables, config, {
-    exposeDefaultValues: true,
-  });
-  const errors = validateSync(validated, {
-    whitelist: true,
-    forbidUnknownValues: false,
-  });
-  if (errors.length > 0) {
-    const details = errors
-      .map(
-        (e) =>
-          `${e.property}: ${Object.values(e.constraints ?? {}).join(', ')}`,
-      )
-      .join('\n  ');
-    throw new Error(`Environment validation failed:\n  ${details}`);
+export function validateEnv(config: Record<string, unknown>): Env {
+  const result = envSchema.safeParse(config);
+  if (!result.success) {
+    throw new Error(
+      `Invalid environment configuration:\n${result.error.issues
+        .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+        .join('\n')}`,
+    );
   }
-  return validated;
+  return result.data;
 }

@@ -15,9 +15,11 @@ FROM node:22-alpine AS runtime
 RUN corepack enable
 WORKDIR /app
 ENV NODE_ENV=production
+ENV APP_ENV=production
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/env ./env
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main"]

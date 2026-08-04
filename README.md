@@ -18,7 +18,7 @@ Production-ready NestJS 11 starter template with Drizzle ORM (PostgreSQL), JWT a
 
 ```bash
 pnpm install
-cp .env.example .env          # set JWT_SECRET (and DATABASE_URL if not using compose)
+cp .env.example .env          # optional: personal overrides only — env/.env.local already has working compose defaults
 docker compose up -d postgres
 pnpm db:migrate
 pnpm start:dev                # http://localhost:3000, Swagger at /api
@@ -28,15 +28,51 @@ pnpm start:dev                # http://localhost:3000, Swagger at /api
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
+| `APP_ENV` | no | `local` | `local` / `test` / `dev` / `staging` / `beta` / `production` — selects the `env/.env.<stage>` instance (see [Environments](#environments)) |
 | `DATABASE_URL` | yes | — | PostgreSQL connection string |
 | `JWT_SECRET` | yes | — | Secret for signing access tokens |
+| `THROTTLE_TTL` | yes | — | Rate-limit window (seconds) — set per stage file |
+| `THROTTLE_LIMIT` | yes | — | Max requests per window — set per stage file |
 | `PORT` | no | `3000` | HTTP port |
-| `NODE_ENV` | no | `development` | `development` / `production` / `test` |
+| `NODE_ENV` | no | `development` | `development` / `production` / `test` — set BY the stage file, don't set by hand |
+| `LOG_LEVEL` | no | `info` in production, else `debug` | pino log level |
+| `LOG_PRETTY` | no | `false` | human-readable one-line logs (pino-pretty) |
+| `LOG_HTTP_BODIES` | no | `false` | request bodies + response payloads in logs (redacted) |
+| `SWAGGER_ENABLED` | no | `false` | serve Swagger UI at `/api` |
 | `JWT_ACCESS_EXPIRES_IN` | no | `300` | Access-token lifetime (seconds) |
 | `JWT_REFRESH_EXPIRES_IN` | no | `604800` | Refresh-token lifetime (seconds) |
 | `CORS_ORIGINS` | no | _(empty)_ | Comma-separated allowed origins; empty disables CORS |
-| `THROTTLE_TTL` | no | `60` | Rate-limit window (seconds) |
-| `THROTTLE_LIMIT` | no | `100` | Max requests per window |
+
+## Environments
+
+The app runs as one of six instances selected by `APP_ENV`
+(`local` | `test` | `dev` | `staging` | `beta` | `production`, default
+`local`). Each instance's config lives in the committed `env/` directory
+— one place to see and diff every instance. Behavior is driven by
+explicit flags in those files, never by env-name checks:
+
+| flag | does |
+|---|---|
+| `LOG_LEVEL` | pino level (defaults: `info` in production, else `debug`) |
+| `LOG_PRETTY` | human-readable one-line logs (pino-pretty) |
+| `LOG_HTTP_BODIES` | request bodies + response payloads in logs (redacted) |
+| `SWAGGER_ENABLED` | serve Swagger UI at `/api` |
+
+Precedence, first wins: injected process env → `.env` (gitignored
+personal overrides) → `env/.env.<stage>.local` (gitignored) →
+`env/.env.<stage>` (committed). Real deployments can inject secrets as
+process env — injected values always beat the files.
+
+Run a stage locally:
+
+```bash
+APP_ENV=staging pnpm start:dev
+```
+
+Jest/e2e always resolve to the `test` instance (`env/.env.test`).
+
+Drizzle commands (`db:generate`, `db:migrate`, `db:push`, `db:studio`) load the
+same cascade, so they honor `APP_ENV` too, e.g. `APP_ENV=staging pnpm db:migrate`.
 
 ## Project structure
 
