@@ -4,13 +4,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
-import { AppModule } from './app.module';
+import { AppModule, ObserveInstrument } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { DebugPayloadInterceptor } from './common/interceptors/debug-payload.interceptor';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    instrument: ObserveInstrument,
+  });
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
 
