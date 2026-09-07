@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-NestJS 12 LMS API ("nestjs-lms") using Drizzle ORM on PostgreSQL, JWT auth with refresh tokens, and Swagger docs served at `/api`. Package manager is **pnpm**.
+NestJS 12 LMS API ("nestjs-lms") using Drizzle ORM on PostgreSQL, JWT auth with refresh tokens, and Swagger docs served at `/api`. Package manager is **pnpm**. Requires Node 24.9+ (pinned in .nvmrc, package.json engines, CI, and the Dockerfile); the project is native ESM.
 
 ## Commands
 
@@ -12,7 +12,7 @@ NestJS 12 LMS API ("nestjs-lms") using Drizzle ORM on PostgreSQL, JWT auth with 
 pnpm start:dev          # run with watch mode (default port 3000, override with PORT)
 pnpm build              # nest build
 pnpm lint               # oxlint (type-aware, via oxlint-tsgolint) with --fix
-pnpm lint:check         # CI gate: oxlint without --fix, then prettier --check
+pnpm lint:check         # CI gate: oxlint with --max-warnings=3 (the 3 known no-misused-spread warnings), then prettier --check
 pnpm format             # prettier on src/ and test/ (formatting is not a lint rule; see lint:check)
 
 pnpm test               # run all unit tests with vitest (*.spec.ts under src/)
@@ -44,7 +44,7 @@ process env → `.env` → `env/.env.<stage>.local` → `env/.env.<stage>`
 `NODE_ENV` and the behavior flags (`LOG_LEVEL`, `LOG_PRETTY`,
 `LOG_HTTP_BODIES`, `SWAGGER_ENABLED`) — app code reads flags, never
 `NODE_ENV` names, for feature decisions; pino options live in
-`src/config/logger.config.ts`. `NODE_ENV=test` (Jest) always resolves to
+`src/config/logger.config.ts`. `NODE_ENV=test` (vitest) always resolves to
 the `test` instance. Token lifetimes are in **seconds**.
 `drizzle.config.ts` loads the same `resolveEnvFiles` cascade as the app (`src/config/env-files.ts`) via `dotenv`, rather than Nest's ConfigModule — the drizzle CLI honors `APP_ENV` too.
 

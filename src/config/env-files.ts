@@ -6,7 +6,7 @@ import { APP_MODE } from './app-mode.js';
  * beats every file. Missing files are skipped silently, so an unknown
  * stage falls through to validateEnv, which rejects it at boot.
  *
- * Stage selection: NODE_ENV=test (Jest) always wins; an injected APP_ENV
+ * Stage selection: NODE_ENV=test (vitest) always wins; an injected APP_ENV
  * env var comes next; otherwise the APP_MODE constant
  * (src/config/app-mode.ts) decides — edit that file to switch instances.
  */
