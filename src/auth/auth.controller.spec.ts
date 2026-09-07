@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
@@ -14,15 +15,15 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: {
-            registerUser: jest.fn(),
-            logout: jest.fn(),
+            registerUser: vi.fn(),
+            logout: vi.fn(),
           },
         },
         {
           provide: JwtService,
           useValue: {
-            signAsync: jest.fn(),
-            verifyAsync: jest.fn(),
+            signAsync: vi.fn(),
+            verifyAsync: vi.fn(),
           },
         },
       ],
@@ -43,7 +44,7 @@ describe('AuthController', () => {
       firstName: 'John',
       lastName: 'Doe',
     };
-    jest.spyOn(authService, 'registerUser').mockResolvedValue(mockUser);
+    vi.spyOn(authService, 'registerUser').mockResolvedValue(mockUser);
 
     const dto = {
       email: 'test@example.com',
@@ -57,7 +58,7 @@ describe('AuthController', () => {
   });
 
   it('revokes tokens for the current user and returns null', async () => {
-    jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
+    vi.spyOn(authService, 'logout').mockResolvedValue(undefined);
 
     const response = await controller.logout(1);
 

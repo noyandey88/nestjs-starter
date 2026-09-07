@@ -1,18 +1,19 @@
+import { vi, type Mock } from 'vitest';
 import { AllExceptionsFilter } from './http-exception.filter';
 import { ConflictException, HttpStatus, Logger } from '@nestjs/common';
 import { ArgumentsHost } from '@nestjs/common';
 
 describe('AllExceptionsFilter', () => {
   let filter: AllExceptionsFilter;
-  let mockStatus: jest.Mock;
-  let mockJson: jest.Mock;
+  let mockStatus: Mock;
+  let mockJson: Mock;
   let mockArgumentsHost: ArgumentsHost;
 
   beforeEach(() => {
-    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     filter = new AllExceptionsFilter();
-    mockStatus = jest.fn().mockReturnThis();
-    mockJson = jest.fn().mockReturnThis();
+    mockStatus = vi.fn().mockReturnThis();
+    mockJson = vi.fn().mockReturnThis();
 
     const mockResponse = {
       status: mockStatus,
@@ -55,6 +56,6 @@ describe('AllExceptionsFilter', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 });

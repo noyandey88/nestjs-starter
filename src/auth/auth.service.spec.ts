@@ -1,3 +1,4 @@
+import { vi, type Mocked } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -8,9 +9,9 @@ import { RefreshTokenRepository } from './refresh-token.repository';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userService: jest.Mocked<UserService>;
-  let jwtService: jest.Mocked<JwtService>;
-  let refreshTokenRepository: jest.Mocked<RefreshTokenRepository>;
+  let userService: Mocked<UserService>;
+  let jwtService: Mocked<JwtService>;
+  let refreshTokenRepository: Mocked<RefreshTokenRepository>;
 
   const safeUser = {
     id: 1,
@@ -24,21 +25,21 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     userService = {
-      createUser: jest.fn(),
-      findUser: jest.fn(),
-      findUserById: jest.fn(),
-    } as unknown as jest.Mocked<UserService>;
+      createUser: vi.fn(),
+      findUser: vi.fn(),
+      findUserById: vi.fn(),
+    } as unknown as Mocked<UserService>;
     jwtService = {
-      signAsync: jest.fn().mockResolvedValue('signed.jwt.token'),
-    } as unknown as jest.Mocked<JwtService>;
+      signAsync: vi.fn().mockResolvedValue('signed.jwt.token'),
+    } as unknown as Mocked<JwtService>;
     refreshTokenRepository = {
-      create: jest.fn(),
-      findActiveUserById: jest.fn(),
-      revokeToken: jest.fn(),
-      revokeAllForUser: jest.fn(),
-    } as unknown as jest.Mocked<RefreshTokenRepository>;
+      create: vi.fn(),
+      findActiveUserById: vi.fn(),
+      revokeToken: vi.fn(),
+      revokeAllForUser: vi.fn(),
+    } as unknown as Mocked<RefreshTokenRepository>;
     const configService = {
-      get: jest.fn((key: string) =>
+      get: vi.fn((key: string) =>
         key === 'JWT_ACCESS_EXPIRES_IN' ? 300 : 604800,
       ),
     } as unknown as ConfigService;

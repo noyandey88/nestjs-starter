@@ -1,3 +1,4 @@
+import { vi, type MockInstance } from 'vitest';
 import { CallHandler, ExecutionContext, Logger } from '@nestjs/common';
 import { lastValueFrom, of } from 'rxjs';
 import { DebugPayloadInterceptor } from './debug-payload.interceptor';
@@ -14,10 +15,12 @@ describe('DebugPayloadInterceptor', () => {
     handle: () => of(value),
   });
 
-  let debugSpy: jest.SpyInstance;
+  let debugSpy: MockInstance;
 
   beforeEach(() => {
-    debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation();
+    debugSpy = vi
+      .spyOn(Logger.prototype, 'debug')
+      .mockImplementation(() => undefined);
   });
 
   afterEach(() => {

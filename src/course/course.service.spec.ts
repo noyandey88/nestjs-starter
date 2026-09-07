@@ -1,10 +1,11 @@
+import { vi, type Mocked } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { CourseService } from './course.service';
 import { CourseRepository } from './course.repository';
 
 describe('CourseService', () => {
   let service: CourseService;
-  let repository: jest.Mocked<CourseRepository>;
+  let repository: Mocked<CourseRepository>;
 
   const course = {
     id: 1,
@@ -19,12 +20,12 @@ describe('CourseService', () => {
 
   beforeEach(() => {
     repository = {
-      findAll: jest.fn(),
-      findOne: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      remove: jest.fn(),
-    } as unknown as jest.Mocked<CourseRepository>;
+      findAll: vi.fn(),
+      findOne: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+    } as unknown as Mocked<CourseRepository>;
     service = new CourseService(repository);
   });
 

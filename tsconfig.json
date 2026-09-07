@@ -12,7 +12,7 @@
     "allowSyntheticDefaultImports": true,
     "target": "ES2023",
 
-    "types": ["node", "jest"],
+    "types": ["node", "vitest/globals"],
     "sourceMap": true,
     "outDir": "./dist",
 
