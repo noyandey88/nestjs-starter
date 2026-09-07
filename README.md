@@ -11,7 +11,7 @@ Production-ready NestJS 12 starter template with Drizzle ORM (PostgreSQL), JWT a
 - **Observability** — structured pino logs (secrets redacted), `GET /health` with DB ping, graceful shutdown
 - **Consistent responses** — every endpoint returns `{ success, status, message, payload }`
 - **Swagger** — interactive docs at `/api`
-- **Tested** — vitest unit tests plus a full e2e flow; CI runs oxlint, prettier, tests, build, and migrations
+- **Tested** — vitest unit tests plus a full e2e flow; CI runs lint, tests, build, and migrations
 - **Docker** — multi-stage image + compose stack
 
 ## Quickstart
@@ -107,7 +107,7 @@ Use `src/course/` as the reference. For a resource `book`:
 ## Testing
 
 ```bash
-pnpm lint:check          # oxlint (type-aware) + prettier --check
+pnpm lint:check          # eslint (type-checked rules + prettier)
 pnpm test                # unit tests (vitest)
 docker compose up -d postgres
 pnpm db:create:test && pnpm db:migrate:test
