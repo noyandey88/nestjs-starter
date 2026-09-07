@@ -64,8 +64,8 @@ behavior, routes, or the response envelope.
 
 ### 3. Test runner
 
-Remove: `jest`, `ts-jest`, `ts-node`, `tsconfig-paths`, `@types/jest`
-(if present), the `jest` block in `package.json`, `test/jest-e2e.json`.
+Remove: `jest`, `ts-jest`, `ts-node`, `tsconfig-paths`, `@types/jest`,
+the `jest` block in `package.json`, `test/jest-e2e.json`.
 
 Add: `vitest`, `@vitest/coverage-v8`, `vite-tsconfig-paths` (kept for
 parity with the scaffold even though no alias remains).
