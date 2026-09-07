@@ -15,7 +15,6 @@
     "types": ["node", "jest"],
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
 
     "rootDir": "./",
     "ignoreDeprecations": "6.0",

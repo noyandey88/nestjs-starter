@@ -11,8 +11,9 @@ NestJS 11 LMS API ("nestjs-lms") using Drizzle ORM on PostgreSQL, JWT auth with 
 ```bash
 pnpm start:dev          # run with watch mode (default port 3000, override with PORT)
 pnpm build              # nest build
-pnpm lint               # eslint with --fix
-pnpm format             # prettier on src/ and test/
+pnpm lint               # oxlint (type-aware, via oxlint-tsgolint) with --fix
+pnpm lint:check         # CI gate: oxlint without --fix, then prettier --check
+pnpm format             # prettier on src/ and test/ (formatting is not a lint rule; see lint:check)
 
 pnpm test               # run all unit tests (*.spec.ts under src/)
 pnpm test -- course.service   # run a single test file (jest pattern match)
