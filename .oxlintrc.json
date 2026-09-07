@@ -2,7 +2,7 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "env": {
     "node": true,
-    "jest": true
+    "vitest": true
   },
   "ignorePatterns": ["dist", "drizzle", "node_modules"],
   "rules": {

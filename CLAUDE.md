@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-NestJS 11 LMS API ("nestjs-lms") using Drizzle ORM on PostgreSQL, JWT auth with refresh tokens, and Swagger docs served at `/api`. Package manager is **pnpm**.
+NestJS 12 LMS API ("nestjs-lms") using Drizzle ORM on PostgreSQL, JWT auth with refresh tokens, and Swagger docs served at `/api`. Package manager is **pnpm**.
 
 ## Commands
 
@@ -15,8 +15,8 @@ pnpm lint               # oxlint (type-aware, via oxlint-tsgolint) with --fix
 pnpm lint:check         # CI gate: oxlint without --fix, then prettier --check
 pnpm format             # prettier on src/ and test/ (formatting is not a lint rule; see lint:check)
 
-pnpm test               # run all unit tests (*.spec.ts under src/)
-pnpm test -- course.service   # run a single test file (jest pattern match)
+pnpm test               # run all unit tests with vitest (*.spec.ts under src/)
+pnpm test -- course.service   # run a single test file (vitest filename filter)
 pnpm test:watch
 
 pnpm db:generate        # generate a Drizzle migration from schema changes
@@ -24,9 +24,9 @@ pnpm db:migrate         # apply migrations
 pnpm db:push            # push schema directly (no migration file)
 pnpm db:studio          # Drizzle Studio UI
 
-pnpm db:create:test     # create the test database (reads env/.env.test)
+pnpm db:create:test     # create the test database (reads env/.env.test); runs scripts/create-test-db.mjs
 pnpm db:migrate:test    # apply migrations to the test database (reads env/.env.test)
-pnpm test:e2e           # e2e tests (test/jest-e2e.json) — requires:
+pnpm test:e2e           # e2e tests (vitest.config.e2e.ts) — requires:
                         #   docker compose up -d postgres
                         #   pnpm db:create:test && pnpm db:migrate:test
 ```
@@ -73,7 +73,7 @@ Standard NestJS module-per-feature layout (`auth`, `user`, `course`, `health`), 
 
 ### Response envelope (cross-cutting)
 
-`main.ts` wires three global pieces: a `ValidationPipe` (`whitelist` + `transform`, so DTOs use class-validator decorators and unknown fields are stripped), `ResponseInterceptor`, and `AllExceptionsFilter`. Every response — success or error — is normalized to the `ApiResponse` shape `{ success, status, message, payload }` (`src/common/`). Controllers return the **raw payload** (usually the service result); the interceptor builds the envelope, deriving `status` from the response's HTTP status code and `message` from `@ApiEnvelope` route metadata.
+`main.ts` wires three global pieces: a `ValidationPipe` (`whitelist` + `transform`, so DTOs use class-validator decorators and unknown fields are stripped), `ResponseInterceptor`, and `AllExceptionsFilter`. `main.ts` ends in top-level `await bootstrap()`. Every response — success or error — is normalized to the `ApiResponse` shape `{ success, status, message, payload }` (`src/common/`). Controllers return the **raw payload** (usually the service result); the interceptor builds the envelope, deriving `status` from the response's HTTP status code and `message` from `@ApiEnvelope` route metadata.
 
 Per-route contract lives in composed decorators (`src/common/decorators/`):
 - `@ApiEnvelope(PayloadDto, { message })` — sets the HTTP code (default 200), the envelope message, and the Swagger success schema (envelope + payload DTO). Use `null` for null payloads, `isArray: true` for lists.
@@ -85,5 +85,5 @@ Do not add `@ApiBody` (inferred from `@Body()` types) or per-route `@HttpCode`/`
 
 ### Conventions
 
-- Path alias `src/*` resolves from the project root (tsconfig + jest `moduleNameMapper`); imports mix relative and `src/...` forms.
+- The project is native ESM (`"type": "module"`, `module: nodenext`). Every relative import must carry an explicit `.js` extension (`./foo.js`, `../bar/index.js`), even though the source is `.ts`; tsc rejects extensionless imports. There is no `src/*` alias.
 - Swagger: tag controllers with `@ApiTags`, document endpoints with `@ApiOperation`.
