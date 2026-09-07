@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { HttpStatus } from '@nestjs/common';
-import { ApiEnvelope, RESPONSE_MESSAGE_KEY } from './api-envelope.decorator';
+import { ApiEnvelope, RESPONSE_MESSAGE_KEY } from './api-envelope.decorator.js';
 
 class DummyDto {}
 

@@ -1,8 +1,8 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { lastValueFrom, of } from 'rxjs';
-import { ResponseInterceptor } from './response.interceptor';
-import { RESPONSE_MESSAGE_KEY } from '../decorators/api-envelope.decorator';
+import { ResponseInterceptor } from './response.interceptor.js';
+import { RESPONSE_MESSAGE_KEY } from '../decorators/api-envelope.decorator.js';
 
 describe('ResponseInterceptor', () => {
   const makeContext = (statusCode: number, handler: object) =>

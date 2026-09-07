@@ -3,7 +3,7 @@ import {
   DatabaseLifecycle,
   DatabaseProvider,
   PoolProvider,
-} from './database.provider';
+} from './database.provider.js';
 
 @Global()
 @Module({

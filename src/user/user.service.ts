@@ -4,8 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { LoginDto, RegisterDto } from 'src/auth/dto/registerUser.dto';
-import { UserRepository } from './user.repository';
+import { LoginDto, RegisterDto } from '../auth/dto/registerUser.dto.js';
+import { UserRepository } from './user.repository.js';
 import bcrypt from 'bcrypt';
 
 @Injectable()

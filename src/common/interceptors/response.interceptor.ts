@@ -9,9 +9,9 @@ import { Reflector } from '@nestjs/core';
 import { Response } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { ApiResponse } from '../interfaces/api-response.interface';
-import { RESPONSE_MESSAGE_KEY } from '../decorators/api-envelope.decorator';
-import { getHttpStatusName } from '../utils/http-status.util';
+import { ApiResponse } from '../interfaces/api-response.interface.js';
+import { RESPONSE_MESSAGE_KEY } from '../decorators/api-envelope.decorator.js';
+import { getHttpStatusName } from '../utils/http-status.util.js';
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<

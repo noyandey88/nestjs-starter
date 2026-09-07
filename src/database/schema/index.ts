@@ -1,3 +1,3 @@
-export * from './user.schema';
-export * from './course.schema';
-export * from './refresh-token.schema';
+export * from './user.schema.js';
+export * from './course.schema.js';
+export * from './refresh-token.schema.js';

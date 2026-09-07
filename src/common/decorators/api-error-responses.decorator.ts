@@ -1,7 +1,7 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
-import { ErrorResponseDto } from '../dto/error-response.dto';
-import { getHttpStatusName } from '../utils/http-status.util';
+import { ErrorResponseDto } from '../dto/error-response.dto.js';
+import { getHttpStatusName } from '../utils/http-status.util.js';
 
 /**
  * Documents error responses with the exact shape AllExceptionsFilter

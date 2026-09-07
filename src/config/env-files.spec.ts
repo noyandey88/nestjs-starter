@@ -1,5 +1,5 @@
-import { APP_MODE } from './app-mode';
-import { resolveEnvFiles } from './env-files';
+import { APP_MODE } from './app-mode.js';
+import { resolveEnvFiles } from './env-files.js';
 
 describe('resolveEnvFiles', () => {
   it('falls back to the APP_MODE constant by default', () => {

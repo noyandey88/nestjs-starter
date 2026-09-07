@@ -3,9 +3,9 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import bcrypt from 'bcrypt';
-import { AuthService } from './auth.service';
-import { UserService } from 'src/user/user.service';
-import { RefreshTokenRepository } from './refresh-token.repository';
+import { AuthService } from './auth.service.js';
+import { UserService } from '../user/user.service.js';
+import { RefreshTokenRepository } from './refresh-token.repository.js';
 
 describe('AuthService', () => {
   let service: AuthService;

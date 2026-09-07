@@ -11,16 +11,16 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CourseService } from './course.service';
-import { CreateCourseDto } from './dto/create-course.dto';
-import { UpdateCourseDto } from './dto/update-course.dto';
-import { CourseResponseDto } from './dto/course-response.dto';
-import { UserRole } from 'src/user/user.types';
-import type { JwtPayload } from 'src/auth/auth.types';
-import { ApiEnvelope } from 'src/common/decorators/api-envelope.decorator';
-import { ApiErrorResponses } from 'src/common/decorators/api-error-responses.decorator';
-import { Auth } from 'src/common/decorators/auth.decorator';
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { CourseService } from './course.service.js';
+import { CreateCourseDto } from './dto/create-course.dto.js';
+import { UpdateCourseDto } from './dto/update-course.dto.js';
+import { CourseResponseDto } from './dto/course-response.dto.js';
+import { UserRole } from '../user/user.types.js';
+import type { JwtPayload } from '../auth/auth.types.js';
+import { ApiEnvelope } from '../common/decorators/api-envelope.decorator.js';
+import { ApiErrorResponses } from '../common/decorators/api-error-responses.decorator.js';
+import { Auth } from '../common/decorators/auth.decorator.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 
 @ApiTags('Courses')
 @Auth()

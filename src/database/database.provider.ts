@@ -7,8 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { DRIZZLE_ORM, PG_POOL } from './database.constants';
-import * as schema from './schema';
+import { DRIZZLE_ORM, PG_POOL } from './database.constants.js';
+import * as schema from './schema/index.js';
 
 export const PoolProvider: Provider = {
   provide: PG_POOL,

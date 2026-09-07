@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { UserRole } from '../user.types';
+import { UserRole } from '../user.types.js';
 
 /** users row minus password (see UserService safeUser destructuring). */
 export class UserResponseDto {

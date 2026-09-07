@@ -1,4 +1,4 @@
-import { getHttpStatusName } from './http-status.util';
+import { getHttpStatusName } from './http-status.util.js';
 
 describe('getHttpStatusName', () => {
   it('converts a numeric status to its name', () => {

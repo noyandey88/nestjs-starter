@@ -4,10 +4,10 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
-import { AppModule, ObserveInstrument } from './app.module';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { DebugPayloadInterceptor } from './common/interceptors/debug-payload.interceptor';
-import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { AppModule, ObserveInstrument } from './app.module.js';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor.js';
+import { DebugPayloadInterceptor } from './common/interceptors/debug-payload.interceptor.js';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {

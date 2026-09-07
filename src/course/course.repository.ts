@@ -1,11 +1,11 @@
-import { CreateCourseDto } from './dto/create-course.dto';
+import { CreateCourseDto } from './dto/create-course.dto.js';
 import { Inject, Injectable } from '@nestjs/common';
-import * as schema from '../database/schema';
-import { courses } from '../database/schema';
-import { DRIZZLE_ORM } from 'src/database/database.constants';
+import * as schema from '../database/schema/index.js';
+import { courses } from '../database/schema/index.js';
+import { DRIZZLE_ORM } from '../database/database.constants.js';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, InferInsertModel, InferSelectModel } from 'drizzle-orm';
-import { UpdateCourseDto } from './dto/update-course.dto';
+import { UpdateCourseDto } from './dto/update-course.dto.js';
 
 type Course = InferSelectModel<typeof courses>;
 type NewCourse = InferInsertModel<typeof courses>;

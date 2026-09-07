@@ -1,5 +1,5 @@
 import { vi, type Mock } from 'vitest';
-import { AllExceptionsFilter } from './http-exception.filter';
+import { AllExceptionsFilter } from './http-exception.filter.js';
 import { ConflictException, HttpStatus, Logger } from '@nestjs/common';
 import { ArgumentsHost } from '@nestjs/common';
 

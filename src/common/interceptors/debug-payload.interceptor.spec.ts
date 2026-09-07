@@ -1,7 +1,7 @@
 import { vi, type MockInstance } from 'vitest';
 import { CallHandler, ExecutionContext, Logger } from '@nestjs/common';
 import { lastValueFrom, of } from 'rxjs';
-import { DebugPayloadInterceptor } from './debug-payload.interceptor';
+import { DebugPayloadInterceptor } from './debug-payload.interceptor.js';
 
 describe('DebugPayloadInterceptor', () => {
   const makeContext = (method: string, url: string) =>

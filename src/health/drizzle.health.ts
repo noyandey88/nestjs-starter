@@ -5,8 +5,8 @@ import {
 } from '@nestjs/terminus';
 import { sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { DRIZZLE_ORM } from 'src/database/database.constants';
-import * as schema from 'src/database/schema';
+import { DRIZZLE_ORM } from '../database/database.constants.js';
+import * as schema from '../database/schema/index.js';
 
 @Injectable()
 export class DrizzleHealthIndicator {

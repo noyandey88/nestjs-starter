@@ -2,7 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
-import { DrizzleHealthIndicator } from './drizzle.health';
+import { DrizzleHealthIndicator } from './drizzle.health.js';
 
 @ApiTags('Health')
 @SkipThrottle()

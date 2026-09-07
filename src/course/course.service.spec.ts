@@ -1,7 +1,7 @@
 import { vi, type Mocked } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
-import { CourseService } from './course.service';
-import { CourseRepository } from './course.repository';
+import { CourseService } from './course.service.js';
+import { CourseRepository } from './course.repository.js';
 
 describe('CourseService', () => {
   let service: CourseService;

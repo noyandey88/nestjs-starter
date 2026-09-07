@@ -1,6 +1,6 @@
 import { defineConfig } from 'drizzle-kit';
 import { config } from 'dotenv';
-import { resolveEnvFiles } from './src/config/env-files';
+import { resolveEnvFiles } from './src/config/env-files.js';
 
 config({ path: resolveEnvFiles(process.env) });
 

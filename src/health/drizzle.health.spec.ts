@@ -1,8 +1,8 @@
 import { vi, type Mock } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { TerminusModule } from '@nestjs/terminus';
-import { DrizzleHealthIndicator } from './drizzle.health';
-import { DRIZZLE_ORM } from 'src/database/database.constants';
+import { DrizzleHealthIndicator } from './drizzle.health.js';
+import { DRIZZLE_ORM } from '../database/database.constants.js';
 
 describe('DrizzleHealthIndicator', () => {
   const createIndicator = async (execute: Mock) => {

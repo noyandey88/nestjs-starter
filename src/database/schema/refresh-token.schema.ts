@@ -7,7 +7,7 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-import { users } from './user.schema';
+import { users } from './user.schema.js';
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: serial('id').primaryKey(),

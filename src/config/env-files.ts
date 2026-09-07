@@ -1,4 +1,4 @@
-import { APP_MODE } from './app-mode';
+import { APP_MODE } from './app-mode.js';
 
 /**
  * Computes the ordered envFilePath list for ConfigModule. Earlier entries

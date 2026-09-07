@@ -1,7 +1,7 @@
 import { applyDecorators, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { AuthGuard } from 'src/auth/auth.guard';
-import { ApiErrorResponses } from './api-error-responses.decorator';
+import { AuthGuard } from '../../auth/auth.guard.js';
+import { ApiErrorResponses } from './api-error-responses.decorator.js';
 
 /**
  * Protected route: AuthGuard + Swagger bearer scheme ('access-token',

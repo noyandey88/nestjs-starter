@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { getHttpStatusName } from '../utils/http-status.util';
+import { getHttpStatusName } from '../utils/http-status.util.js';
 
 interface PgError {
   code?: string;

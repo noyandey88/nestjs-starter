@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { UserResponseDto } from 'src/user/dto/user-response.dto';
+import { UserResponseDto } from '../../user/dto/user-response.dto.js';
 
 /** Return shape of AuthService.issueAccessToken / refreshAccessToken. */
 export class AccessTokenResponseDto {

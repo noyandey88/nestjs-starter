@@ -1,17 +1,21 @@
 import { Body, Controller, HttpStatus, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
-import { LoginDto, RefreshTokenDto, RegisterDto } from './dto/registerUser.dto';
+import { AuthService } from './auth.service.js';
+import {
+  LoginDto,
+  RefreshTokenDto,
+  RegisterDto,
+} from './dto/registerUser.dto.js';
 import {
   AccessTokenResponseDto,
   LoginResponseDto,
-} from './dto/auth-response.dto';
-import { UserResponseDto } from 'src/user/dto/user-response.dto';
-import { ApiEnvelope } from 'src/common/decorators/api-envelope.decorator';
-import { ApiErrorResponses } from 'src/common/decorators/api-error-responses.decorator';
-import { Auth } from 'src/common/decorators/auth.decorator';
-import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+} from './dto/auth-response.dto.js';
+import { UserResponseDto } from '../user/dto/user-response.dto.js';
+import { ApiEnvelope } from '../common/decorators/api-envelope.decorator.js';
+import { ApiErrorResponses } from '../common/decorators/api-error-responses.decorator.js';
+import { Auth } from '../common/decorators/auth.decorator.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 
 @ApiTags('Auth')
 @Throttle({ default: { limit: 10, ttl: 60_000 } })

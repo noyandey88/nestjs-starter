@@ -6,7 +6,7 @@ import {
   Type,
 } from '@nestjs/common';
 import { ApiExtraModels, ApiResponse, getSchemaPath } from '@nestjs/swagger';
-import { getHttpStatusName } from '../utils/http-status.util';
+import { getHttpStatusName } from '../utils/http-status.util.js';
 
 export const RESPONSE_MESSAGE_KEY = 'response_message';
 

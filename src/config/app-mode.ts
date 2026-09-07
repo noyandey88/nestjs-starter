@@ -1,4 +1,4 @@
-import type { AppEnv } from './env.validation';
+import type { AppEnv } from './env.validation.js';
 
 /**
  * The instance switch. Change this value to pick which env/.env.<mode>

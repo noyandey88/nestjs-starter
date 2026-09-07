@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { UserModule } from 'src/user/user.module';
-import { RefreshTokenRepository } from './refresh-token.repository';
+import { AuthController } from './auth.controller.js';
+import { AuthService } from './auth.service.js';
+import { UserModule } from '../user/user.module.js';
+import { RefreshTokenRepository } from './refresh-token.repository.js';
 
 @Module({
   imports: [

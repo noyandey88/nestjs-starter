@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { APP_MODE } from './app-mode';
+import { APP_MODE } from './app-mode.js';
 
 export const APP_ENVS = [
   'local',

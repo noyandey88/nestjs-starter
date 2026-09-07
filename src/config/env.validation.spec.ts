@@ -1,5 +1,5 @@
-import { APP_MODE } from './app-mode';
-import { validateEnv, APP_ENVS } from './env.validation';
+import { APP_MODE } from './app-mode.js';
+import { validateEnv, APP_ENVS } from './env.validation.js';
 
 const base = {
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/db',
