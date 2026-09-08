@@ -4,7 +4,7 @@ Production-ready NestJS 12 starter template with Drizzle ORM (PostgreSQL), JWT a
 
 ## Features
 
-- **Auth** — register/login, short-lived JWT access tokens, single-use refresh tokens (revoked on use), logout-everywhere
+- **Auth** — register/login, short-lived JWT access tokens, rotating single-use refresh tokens with reuse detection, declarative `@Roles()`, logout-everywhere
 - **Drizzle ORM** — typed schema, generated SQL migrations, Drizzle Studio
 - **Validated config** — boot fails fast with a clear error if required env vars are missing
 - **Security** — helmet, config-driven CORS, global rate limiting (stricter on auth endpoints)
