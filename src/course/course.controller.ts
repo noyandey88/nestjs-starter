@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   HttpStatus,
   Param,
@@ -16,11 +15,11 @@ import { CreateCourseDto } from './dto/create-course.dto.js';
 import { UpdateCourseDto } from './dto/update-course.dto.js';
 import { CourseResponseDto } from './dto/course-response.dto.js';
 import { UserRole } from '../user/user.types.js';
-import type { JwtPayload } from '../auth/auth.types.js';
 import { ApiEnvelope } from '../common/decorators/api-envelope.decorator.js';
 import { ApiErrorResponses } from '../common/decorators/api-error-responses.decorator.js';
 import { Auth } from '../common/decorators/auth.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { Roles } from '../common/decorators/roles.decorator.js';
 
 @ApiTags('Courses')
 @Auth()
@@ -34,7 +33,7 @@ export class CourseController {
     description: 'Creates a new course using the provided details.',
   })
   @ApiEnvelope(CourseResponseDto, { message: 'Course created successfully' })
-  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.CONFLICT)
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST)
   async create(
     @Body() createCourseDto: CreateCourseDto,
     @CurrentUser('email') creatorEmail: string,
@@ -82,25 +81,15 @@ export class CourseController {
   }
 
   @Delete('delete/:id')
+  @Roles(UserRole.Admin)
   @ApiOperation({
     summary: 'Remove a course',
-    description: 'Deletes an existing course by its unique identifier.',
+    description:
+      'Deletes an existing course by its unique identifier. Admins only.',
   })
   @ApiEnvelope(CourseResponseDto, { message: 'Course removed successfully' })
-  @ApiErrorResponses(
-    HttpStatus.BAD_REQUEST,
-    HttpStatus.FORBIDDEN,
-    HttpStatus.NOT_FOUND,
-  )
-  async remove(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    if ((user.role as UserRole) !== UserRole.Admin) {
-      throw new ForbiddenException(
-        'You do not have permission to delete this course',
-      );
-    }
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND)
+  async remove(@Param('id', ParseIntPipe) id: number) {
     return this.courseService.remove(id);
   }
 }
