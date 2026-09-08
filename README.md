@@ -31,6 +31,9 @@ pnpm start:dev                # http://localhost:3000, Swagger at /api
 | --- | --- | --- | --- |
 | `APP_ENV` | no | `local` | `local` / `test` / `dev` / `staging` / `beta` / `production` — selects the `env/.env.<stage>` instance (see [Environments](#environments)) |
 | `DATABASE_URL` | yes | — | PostgreSQL connection string |
+| `DB_POOL_MAX` | no | `10` | pg pool size |
+| `DB_CONNECT_TIMEOUT_MS` | no | `5000` | fail a pool checkout after this long instead of queueing forever |
+| `DB_STATEMENT_TIMEOUT_MS` | no | `15000` | Postgres `statement_timeout` for every connection |
 | `JWT_SECRET` | yes | — | Secret for signing access tokens |
 | `THROTTLE_TTL` | yes | — | Rate-limit window (seconds) — set per stage file |
 | `THROTTLE_LIMIT` | yes | — | Max requests per window — set per stage file |

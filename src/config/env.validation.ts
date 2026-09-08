@@ -41,6 +41,12 @@ const envSchema = z.object({
   THROTTLE_LIMIT: z.coerce.number().int().positive(),
 
   DATABASE_URL: z.url(),
+  /** pg pool size. */
+  DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+  /** Fail a pool checkout after this many ms instead of queueing forever. */
+  DB_CONNECT_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  /** Postgres statement_timeout applied to every connection (ms). */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
   JWT_SECRET: z.string().min(1),
   /** Access-token lifetime in seconds. */
   JWT_ACCESS_EXPIRES_IN: z.coerce.number().int().positive().default(300),
