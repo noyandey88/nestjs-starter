@@ -1,10 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
-import { AppModule } from '../src/app.module.js';
-import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor.js';
-import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter.js';
+import { createApp } from '../src/bootstrap.js';
 
 describe('API flow (e2e)', () => {
   let app: INestApplication<App>;
@@ -15,16 +12,9 @@ describe('API flow (e2e)', () => {
   let courseId: number;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
-    app.useGlobalInterceptors(new ResponseInterceptor());
-    app.useGlobalFilters(new AllExceptionsFilter());
+    // Same factory as main.ts, so instrumentation, helmet, CORS, and the
+    // global pipeline are all under test - not a hand-assembled subset.
+    app = (await createApp()) as INestApplication<App>;
     await app.init();
   });
 
