@@ -14,7 +14,8 @@ async function bootstrap() {
     bufferLogs: true,
     instrument: ObserveInstrument,
   });
-  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
+  app.useLogger(logger);
   app.enableShutdownHooks();
 
   app.use(helmet());
@@ -26,6 +27,11 @@ async function bootstrap() {
     .filter(Boolean);
   if (corsOrigins.length > 0) {
     app.enableCors({ origin: corsOrigins });
+    logger.log(`CORS enabled for origins: ${corsOrigins.join(', ')}`);
+  } else {
+    logger.warn(
+      'CORS disabled (CORS_ORIGINS is empty); cross-origin browser requests will fail',
+    );
   }
 
   app.useGlobalPipes(
