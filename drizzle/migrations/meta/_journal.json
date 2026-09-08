@@ -57,6 +57,13 @@
       "when": 1788865706626,
       "tag": "0007_refresh_token_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788865789131,
+      "tag": "0008_course_level_not_unique",
+      "breakpoints": true
     }
   ]
 }

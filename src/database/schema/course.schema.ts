@@ -4,7 +4,7 @@ export const courses = pgTable('courses', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
   description: varchar('description', { length: 255 }).notNull(),
-  level: varchar('level', { length: 100 }).unique().notNull(),
+  level: varchar('level', { length: 100 }).notNull(),
   createdBy: varchar('created_by', { length: 100 }).notNull(),
   updatedBy: varchar('updated_by', { length: 100 }),
   createdAt: timestamp('created_at', {
