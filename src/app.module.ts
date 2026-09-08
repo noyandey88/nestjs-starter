@@ -16,6 +16,21 @@ import { createLoggerOptions } from './config/logger.config.js';
 import { createObserveModule } from '@nestjs/observe';
 import { Pool } from 'pg';
 
+// Loads the env-file cascade into process.env synchronously, so the
+// observe decision below can read the validated keys before the
+// module graph is assembled.
+const configModule = ConfigModule.forRoot({
+  isGlobal: true,
+  validate: validateEnv,
+  envFilePath: resolveEnvFiles(process.env),
+});
+
+const observeAppKey = process.env.OBSERVE_APP_KEY;
+const observeAppSecret = process.env.OBSERVE_APP_SECRET;
+/** Observe only runs when both credentials are present; otherwise the
+ *  agent worker would spin and get 401s on every telemetry batch. */
+export const observeEnabled = Boolean(observeAppKey && observeAppSecret);
+
 export const { ObserveModule, ObserveInstrument } = createObserveModule({
   // pg-pool calls `new this.Promise(...)`; observe's method proxy is a
   // plain function, so instrumenting the Pool breaks every query.
@@ -24,11 +39,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule({
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validate: validateEnv,
-      envFilePath: resolveEnvFiles(process.env),
-    }),
+    configModule,
     LoggerModule.forRootAsync({
       imports: [ConfigModule],
       providers: [ConfigService],
@@ -52,11 +63,15 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule({
     DatabaseModule,
     CourseModule,
     HealthModule,
-    ObserveModule.forRoot({
-      appKey: String(process.env.OBSERVE_APP_KEY ?? ''),
-      appSecret: String(process.env.OBSERVE_APP_SECRET ?? ''),
-      serviceId: 'nestjs-lms',
-    }),
+    ...(observeEnabled
+      ? [
+          ObserveModule.forRoot({
+            appKey: observeAppKey!,
+            appSecret: observeAppSecret!,
+            serviceId: 'nestjs-lms',
+          }),
+        ]
+      : []),
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

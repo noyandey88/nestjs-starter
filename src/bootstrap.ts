@@ -4,7 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
-import { AppModule, ObserveInstrument } from './app.module.js';
+import { AppModule, ObserveInstrument, observeEnabled } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter.js';
 import { DebugPayloadInterceptor } from './common/interceptors/debug-payload.interceptor.js';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor.js';
@@ -19,11 +19,14 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor.
 export async function createApp(): Promise<INestApplication> {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
-    instrument: ObserveInstrument,
+    instrument: observeEnabled ? ObserveInstrument : undefined,
   });
   const logger = app.get(Logger);
   app.useLogger(logger);
   app.enableShutdownHooks();
+  if (!observeEnabled) {
+    logger.log('Observe disabled (OBSERVE_APP_KEY/OBSERVE_APP_SECRET unset)');
+  }
 
   app.use(helmet());
 

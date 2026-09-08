@@ -48,6 +48,9 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.coerce.number().int().positive().default(604800),
   /** Comma-separated list of allowed origins. Empty disables CORS. */
   CORS_ORIGINS: z.string().default(''),
+  /** @nestjs/observe credentials. Both required to enable telemetry. */
+  OBSERVE_APP_KEY: z.string().min(1).optional(),
+  OBSERVE_APP_SECRET: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

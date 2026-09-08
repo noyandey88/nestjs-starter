@@ -43,6 +43,7 @@ pnpm start:dev                # http://localhost:3000, Swagger at /api
 | `JWT_ACCESS_EXPIRES_IN` | no | `300` | Access-token lifetime (seconds) |
 | `JWT_REFRESH_EXPIRES_IN` | no | `604800` | Refresh-token lifetime (seconds) |
 | `CORS_ORIGINS` | no | _(empty)_ | Comma-separated allowed origins; empty disables CORS |
+| `OBSERVE_APP_KEY` / `OBSERVE_APP_SECRET` | no | _(unset)_ | `@nestjs/observe` credentials; telemetry and instrumentation run only when both are set |
 
 ## Environments
 
