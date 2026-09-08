@@ -66,7 +66,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         pgError.stack,
       );
     } else if (exception instanceof Error) {
-      message = exception.message || 'Internal server error';
+      // Detail goes to the log only; the client gets the generic message
+      // so stack-adjacent text (SQL, file paths) never leaves the process.
       this.logger.error(
         `Unhandled Exception: ${exception.message}`,
         exception.stack,

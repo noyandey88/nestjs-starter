@@ -41,6 +41,21 @@ describe('AllExceptionsFilter', () => {
     });
   });
 
+  it('does not echo the message of an unexpected Error to the client', () => {
+    filter.catch(
+      new Error('Failed query: select * from users'),
+      mockArgumentsHost,
+    );
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+    expect(mockJson).toHaveBeenCalledWith({
+      success: false,
+      status: 'INTERNAL_SERVER_ERROR',
+      message: 'Internal server error',
+      payload: null,
+    });
+  });
+
   it('should handle database duplicate key error (code 23505)', () => {
     const dbError = { code: '23505', message: 'duplicate key value' };
 
