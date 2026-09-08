@@ -8,8 +8,8 @@ import {
   RegisterDto,
 } from './dto/registerUser.dto.js';
 import {
-  AccessTokenResponseDto,
   LoginResponseDto,
+  TokenPairResponseDto,
 } from './dto/auth-response.dto.js';
 import { UserResponseDto } from '../user/dto/user-response.dto.js';
 import { ApiEnvelope } from '../common/decorators/api-envelope.decorator.js';
@@ -41,26 +41,21 @@ export class AuthController {
     description: 'Login to your account with your credentials',
   })
   @ApiEnvelope(LoginResponseDto, { message: 'User logged in successful' })
-  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.NOT_FOUND)
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED)
   async login(@Body() loginUserDto: LoginDto) {
     return this.authService.loginUser(loginUserDto);
   }
 
-  @Auth()
   @Post('access-token/refresh')
   @ApiOperation({
     summary: 'Refresh access token',
-    description: 'Refresh the access token using a valid refresh token',
+    description:
+      'Redeems a refresh token for a new access/refresh pair. The presented token is revoked; presenting it again revokes every token for that user.',
   })
-  @ApiEnvelope(AccessTokenResponseDto, { message: 'Data loaded successfully' })
-  async refreshAccessToken(
-    @Body() refreshToken: RefreshTokenDto,
-    @CurrentUser('sub') userId: number,
-  ) {
-    return this.authService.refreshAccessToken(
-      userId,
-      refreshToken.refreshToken,
-    );
+  @ApiEnvelope(TokenPairResponseDto, { message: 'Tokens refreshed' })
+  @ApiErrorResponses(HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED)
+  async refreshAccessToken(@Body() body: RefreshTokenDto) {
+    return this.authService.refreshAccessToken(body.refreshToken);
   }
 
   @Auth()

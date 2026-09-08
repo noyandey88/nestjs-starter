@@ -1,20 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserResponseDto } from '../../user/dto/user-response.dto.js';
 
-/** Return shape of AuthService.issueAccessToken / refreshAccessToken. */
-export class AccessTokenResponseDto {
-  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIs...' })
-  accessToken!: string;
-
-  @ApiProperty({ example: 300, description: 'Access token lifetime, seconds' })
-  expiresIn!: number;
-
-  @ApiProperty({ example: 1754300000, description: 'Unix timestamp (seconds)' })
-  expiresAt!: number;
-}
-
-/** Return shape of AuthService.loginUser. */
-export class LoginResponseDto {
+/** Return shape of AuthService.refreshAccessToken. */
+export class TokenPairResponseDto {
   @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIs...' })
   accessToken!: string;
 
@@ -32,7 +20,10 @@ export class LoginResponseDto {
 
   @ApiProperty({ example: 1754900000, description: 'Unix timestamp (seconds)' })
   refreshTokenExpiresAt!: number;
+}
 
+/** Return shape of AuthService.loginUser. */
+export class LoginResponseDto extends TokenPairResponseDto {
   @ApiProperty({ type: UserResponseDto })
   user!: UserResponseDto;
 }

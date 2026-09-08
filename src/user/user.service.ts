@@ -1,8 +1,8 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { LoginDto, RegisterDto } from '../auth/dto/registerUser.dto.js';
 import { UserRepository } from './user.repository.js';
@@ -25,26 +25,22 @@ export class UserService {
     return safeUser;
   }
 
+  /**
+   * Verifies credentials. Unknown email and wrong password both yield the
+   * same 401 so the endpoint cannot be used to enumerate accounts.
+   */
   async findUser(loginDto: LoginDto) {
     const user = await this.userRepository.findByEmail(loginDto.email);
+    const isPasswordMatched = user
+      ? await bcrypt.compare(loginDto.password, user.password)
+      : false;
 
-    if (user) {
-      const isPasswordMatched = await bcrypt.compare(
-        loginDto.password,
-        user.password,
-      );
-
-      if (isPasswordMatched) {
-        const { password: _password, ...safeUser } = user;
-        return safeUser;
-      } else {
-        throw new BadRequestException(
-          'The email or password you entered is incorrect',
-        );
-      }
-    } else {
-      throw new NotFoundException('User not found');
+    if (!user || !isPasswordMatched) {
+      throw new UnauthorizedException('Invalid email or password');
     }
+
+    const { password: _password, ...safeUser } = user;
+    return safeUser;
   }
 
   async findUserById(id: number) {

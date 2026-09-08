@@ -9,6 +9,7 @@ describe('API flow (e2e)', () => {
   const password = 'S3cure-password!';
   let accessToken: string;
   let refreshToken: string;
+  let rotatedRefreshToken: string;
   let courseId: number;
 
   beforeAll(async () => {
@@ -44,6 +45,32 @@ describe('API flow (e2e)', () => {
     expect(res.body.payload.email).toBe(email);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(res.body.payload.password).toBeUndefined();
+  });
+
+  it('POST /auth/register rejects a short password with 400', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        firstName: 'E2e',
+        lastName: 'Tester',
+        email: `x-${email}`,
+        password: 'short',
+      })
+      .expect(400);
+  });
+
+  it('POST /auth/login rejects a wrong password with 401', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: 'not-the-password' })
+      .expect(401);
+  });
+
+  it('POST /auth/login rejects an unknown email with the same 401', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: `nobody-${email}`, password })
+      .expect(401);
   });
 
   it('POST /auth/register rejects a duplicate email with 409', async () => {
@@ -128,21 +155,31 @@ describe('API flow (e2e)', () => {
       .expect(400);
   });
 
-  it('POST /auth/access-token/refresh rotates and returns a new access token', async () => {
+  it('POST /auth/access-token/refresh needs no access token and returns a new pair', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/access-token/refresh')
-      .set('Authorization', `Bearer ${accessToken}`)
       .send({ refreshToken })
       .expect(200);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect(res.body.payload.accessToken).toEqual(expect.any(String));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(res.body.payload.refreshToken).toEqual(expect.any(String));
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(res.body.payload.refreshToken).not.toBe(refreshToken);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    rotatedRefreshToken = res.body.payload.refreshToken;
   });
 
-  it('reusing the same refresh token fails with 401', async () => {
+  it('reusing the redeemed refresh token fails with 401 and revokes the new one too', async () => {
     await request(app.getHttpServer())
       .post('/auth/access-token/refresh')
-      .set('Authorization', `Bearer ${accessToken}`)
       .send({ refreshToken })
+      .expect(401);
+
+    // reuse detection revoked the whole family, including the rotated token
+    await request(app.getHttpServer())
+      .post('/auth/access-token/refresh')
+      .send({ refreshToken: rotatedRefreshToken })
       .expect(401);
   });
 
@@ -163,7 +200,6 @@ describe('API flow (e2e)', () => {
 
     await request(app.getHttpServer())
       .post('/auth/access-token/refresh')
-      .set('Authorization', `Bearer ${freshAccessToken}`)
       .send({ refreshToken: freshRefreshToken })
       .expect(401);
   });

@@ -5,7 +5,7 @@ import { RegisterDto, LoginDto } from './dto/registerUser.dto.js';
 import bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshTokenRepository } from './refresh-token.repository.js';
-import * as crypto from 'crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +15,7 @@ export class AuthService {
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly configService: ConfigService,
   ) {}
+
   async registerUser(registerUserDto: RegisterDto) {
     const hash = await bcrypt.hash(registerUserDto.password, 10);
 
@@ -24,53 +25,63 @@ export class AuthService {
   async loginUser(loginDto: LoginDto) {
     const user = await this.userService.findUser(loginDto);
 
-    const {
-      accessToken,
-      expiresIn: accessTokenExpiresIn,
-      expiresAt: accessTokenExpiresAt,
-    } = await this.issueAccessToken(user.id, user.email, user.role);
+    // Cheap, bounded housekeeping: every login sheds this user's dead rows
+    // so the table never accumulates unbounded revoked/expired tokens.
+    await this.refreshTokenRepository.deleteStaleForUser(user.id);
 
-    const {
-      refreshToken,
-      expiresIn: refreshTokenExpiresIn,
-      expiresAt: refreshTokenExpiresAt,
-    } = await this.issueRefreshToken(user.id);
+    const tokens = await this.issueTokenPair(user.id, user.email, user.role);
 
-    return {
-      accessToken,
-      refreshToken,
-      accessTokenExpiresIn: accessTokenExpiresIn,
-      accessTokenExpiresAt: accessTokenExpiresAt,
-      refreshTokenExpiresIn: refreshTokenExpiresIn,
-      refreshTokenExpiresAt: refreshTokenExpiresAt,
-      user: user,
-    };
+    return { ...tokens, user };
   }
 
-  async refreshAccessToken(userId: number, refreshToken: string) {
-    const storedTokens =
-      await this.refreshTokenRepository.findActiveUserById(userId);
+  /**
+   * Redeems a refresh token: the presented token is revoked and a new
+   * access/refresh pair is issued. Presenting an already-revoked token
+   * is treated as theft and revokes every token the user holds.
+   */
+  async refreshAccessToken(rawRefreshToken: string) {
+    const stored = await this.refreshTokenRepository.findByHash(
+      this.hashRefreshToken(rawRefreshToken),
+    );
 
-    const match = await this.findMatchingToken(storedTokens, refreshToken);
-
-    if (!match) {
-      await this.refreshTokenRepository.revokeAllForUser(userId);
+    if (!stored) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    if ((match.expiresAt && match.expiresAt < new Date()) || match.revoked) {
-      throw new UnauthorizedException('Refresh token expired or revoked');
+    if (stored.revoked) {
+      await this.refreshTokenRepository.revokeAllForUser(stored.userId);
+      throw new UnauthorizedException('Refresh token reused');
     }
 
-    await this.refreshTokenRepository.revokeToken(match.id);
+    if (stored.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
 
-    const user = await this.userService.findUserById(userId);
+    await this.refreshTokenRepository.revokeToken(stored.id);
 
-    return await this.issueAccessToken(userId, user.email, user.role);
+    const user = await this.userService.findUserById(stored.userId);
+
+    return this.issueTokenPair(user.id, user.email, user.role);
   }
 
   async logout(userId: number) {
     return await this.refreshTokenRepository.revokeAllForUser(userId);
+  }
+
+  private async issueTokenPair(userId: number, email: string, role: string) {
+    const [access, refresh] = await Promise.all([
+      this.issueAccessToken(userId, email, role),
+      this.issueRefreshToken(userId),
+    ]);
+
+    return {
+      accessToken: access.accessToken,
+      refreshToken: refresh.refreshToken,
+      accessTokenExpiresIn: access.expiresIn,
+      accessTokenExpiresAt: access.expiresAt,
+      refreshTokenExpiresIn: refresh.expiresIn,
+      refreshTokenExpiresAt: refresh.expiresAt,
+    };
   }
 
   private async issueAccessToken(userId: number, email: string, role: string) {
@@ -86,12 +97,15 @@ export class AuthService {
   }
 
   private async issueRefreshToken(userId: number) {
-    const rawRefreshToken = crypto.randomBytes(64).toString('hex');
-    const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
+    const rawRefreshToken = randomBytes(64).toString('hex');
     const expiresIn = this.configService.get<number>('JWT_REFRESH_EXPIRES_IN')!;
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
-    await this.refreshTokenRepository.create({ userId, tokenHash, expiresAt });
+    await this.refreshTokenRepository.create({
+      userId,
+      tokenHash: this.hashRefreshToken(rawRefreshToken),
+      expiresAt,
+    });
 
     return {
       refreshToken: rawRefreshToken,
@@ -100,21 +114,12 @@ export class AuthService {
     };
   }
 
-  private async findMatchingToken(
-    storedTokens: {
-      id: number;
-      createdAt: Date | null;
-      userId: number;
-      tokenHash: string;
-      revoked: boolean;
-      expiresAt: Date | null;
-    }[],
-    plainToken: string,
-  ) {
-    for (const stored of storedTokens) {
-      const isMatch = await bcrypt.compare(plainToken, stored.tokenHash);
-      if (isMatch) return stored;
-    }
-    return null;
+  /**
+   * The raw token is 64 random bytes, so a fast unsalted digest is safe
+   * (nothing to brute-force) and gives an indexable, deterministic key.
+   * bcrypt would force a linear scan with a slow compare per row.
+   */
+  private hashRefreshToken(raw: string): string {
+    return createHash('sha256').update(raw).digest('hex');
   }
 }

@@ -3,6 +3,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import bcrypt from 'bcrypt';
+import { createHash } from 'node:crypto';
 import { AuthService } from './auth.service.js';
 import { UserService } from '../user/user.service.js';
 import { RefreshTokenRepository } from './refresh-token.repository.js';
@@ -34,9 +35,10 @@ describe('AuthService', () => {
     } as unknown as Mocked<JwtService>;
     refreshTokenRepository = {
       create: vi.fn(),
-      findActiveUserById: vi.fn(),
+      findByHash: vi.fn(),
       revokeToken: vi.fn(),
       revokeAllForUser: vi.fn(),
+      deleteStaleForUser: vi.fn(),
     } as unknown as Mocked<RefreshTokenRepository>;
     const configService = {
       get: vi.fn((key: string) =>
@@ -93,53 +95,86 @@ describe('AuthService', () => {
       // stored hash must not be the raw refresh token
       const stored = refreshTokenRepository.create.mock.calls[0][0];
       expect(stored.tokenHash).not.toBe(result.refreshToken);
+      // and it must be the deterministic digest the refresh lookup uses
+      expect(stored.tokenHash).toBe(
+        createHash('sha256').update(result.refreshToken).digest('hex'),
+      );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(refreshTokenRepository.deleteStaleForUser).toHaveBeenCalledWith(
+        safeUser.id,
+      );
     });
   });
 
   describe('refreshAccessToken', () => {
-    const makeStored = async (raw: string, overrides = {}) => ({
+    const raw = 'raw-refresh-token';
+    const makeStored = (overrides = {}) => ({
       id: 10,
       userId: 1,
-      tokenHash: await bcrypt.hash(raw, 4),
+      tokenHash: createHash('sha256').update(raw).digest('hex'),
       revoked: false,
       expiresAt: new Date(Date.now() + 60_000),
       createdAt: new Date(),
       ...overrides,
     });
 
-    it('rotates the matching token and issues a new access token', async () => {
-      const raw = 'raw-refresh-token';
-      refreshTokenRepository.findActiveUserById.mockResolvedValue([
-        await makeStored(raw),
-      ]);
+    it('looks the token up by its sha256 digest', async () => {
+      refreshTokenRepository.findByHash.mockResolvedValue(makeStored());
       userService.findUserById.mockResolvedValue(safeUser);
 
-      const result = await service.refreshAccessToken(1, raw);
+      await service.refreshAccessToken(raw);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(refreshTokenRepository.findByHash).toHaveBeenCalledWith(
+        createHash('sha256').update(raw).digest('hex'),
+      );
+    });
+
+    it('revokes the presented token and issues a new pair', async () => {
+      refreshTokenRepository.findByHash.mockResolvedValue(makeStored());
+      userService.findUserById.mockResolvedValue(safeUser);
+
+      const result = await service.refreshAccessToken(raw);
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(refreshTokenRepository.revokeToken).toHaveBeenCalledWith(10);
       expect(result.accessToken).toBe('signed.jwt.token');
+      expect(result.refreshToken).toEqual(expect.any(String));
+      expect(result.refreshToken).not.toBe(raw);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(refreshTokenRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 1 }),
+      );
     });
 
-    it('revokes all tokens and throws when no stored token matches', async () => {
-      refreshTokenRepository.findActiveUserById.mockResolvedValue([
-        await makeStored('a-different-token'),
-      ]);
+    it('throws when no stored token matches', async () => {
+      refreshTokenRepository.findByHash.mockResolvedValue(undefined);
 
-      await expect(
-        service.refreshAccessToken(1, 'raw-refresh-token'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.refreshAccessToken(raw)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(refreshTokenRepository.revokeAllForUser).not.toHaveBeenCalled();
+    });
+
+    it('treats a revoked token as reuse and revokes the whole family', async () => {
+      refreshTokenRepository.findByHash.mockResolvedValue(
+        makeStored({ revoked: true }),
+      );
+
+      await expect(service.refreshAccessToken(raw)).rejects.toThrow(
+        UnauthorizedException,
+      );
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(refreshTokenRepository.revokeAllForUser).toHaveBeenCalledWith(1);
     });
 
     it('throws when the matching token is expired', async () => {
-      const raw = 'raw-refresh-token';
-      refreshTokenRepository.findActiveUserById.mockResolvedValue([
-        await makeStored(raw, { expiresAt: new Date(Date.now() - 1000) }),
-      ]);
+      refreshTokenRepository.findByHash.mockResolvedValue(
+        makeStored({ expiresAt: new Date(Date.now() - 1000) }),
+      );
 
-      await expect(service.refreshAccessToken(1, raw)).rejects.toThrow(
+      await expect(service.refreshAccessToken(raw)).rejects.toThrow(
         UnauthorizedException,
       );
     });
