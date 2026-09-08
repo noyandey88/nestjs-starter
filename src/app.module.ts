@@ -14,8 +14,13 @@ import { validateEnv } from './config/env.validation.js';
 import { resolveEnvFiles } from './config/env-files.js';
 import { createLoggerOptions } from './config/logger.config.js';
 import { createObserveModule } from '@nestjs/observe';
+import { Pool } from 'pg';
 
-export const { ObserveModule, ObserveInstrument } = createObserveModule();
+export const { ObserveModule, ObserveInstrument } = createObserveModule({
+  // pg-pool calls `new this.Promise(...)`; observe's method proxy is a
+  // plain function, so instrumenting the Pool breaks every query.
+  skipInstrumentation: (instance) => instance instanceof Pool,
+});
 
 @Module({
   imports: [
